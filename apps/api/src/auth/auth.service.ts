@@ -1,31 +1,57 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcrypt';
+
+import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly jwtService: JwtService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly jwtService: JwtService,
+  ) {}
 
-  login(loginDto: LoginDto) {
+  async login(loginDto: LoginDto) {
     const { username, password } = loginDto;
 
-    if (username !== 'admin' || password !== '123456') {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        username,
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid username or password');
+    }
+
+    const passwordMatched = await bcrypt.compare(
+      password,
+      user.password,
+    );
+
+    if (!passwordMatched) {
       throw new UnauthorizedException('Invalid username or password');
     }
 
     const payload = {
-      sub: 1,
-      username: 'admin',
-      role: 'SUPER_ADMIN',
+      sub: user.id,
+      username: user.username,
+      role: user.role,
     };
 
     return {
       success: true,
+
       accessToken: this.jwtService.sign(payload),
+
       user: {
-        id: 1,
-        username: 'admin',
-        role: 'SUPER_ADMIN',
+        id: user.id,
+        username: user.username,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+        isActive: user.isActive,
       },
     };
   }
