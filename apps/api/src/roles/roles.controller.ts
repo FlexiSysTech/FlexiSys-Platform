@@ -1,0 +1,80 @@
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
+
+import { Permissions } from '../common/decorators/permissions.decorator';
+import { Roles } from '../common/decorators/roles.decorator';
+import { CreateRoleDto } from './dto/create-role.dto';
+import { UpdateRoleDto } from './dto/update-role.dto';
+import { RolesService } from './roles.service';
+
+@ApiTags('Roles')
+@ApiBearerAuth()
+@Controller('roles')
+export class RolesController {
+  constructor(private readonly rolesService: RolesService) {}
+
+  @Get()
+  @Roles('SUPER_ADMIN')
+  @Permissions('roles.read')
+  @ApiOperation({
+    summary: 'Get all roles',
+  })
+  findAll() {
+    return this.rolesService.findAll();
+  }
+
+  @Get(':id')
+  @Roles('SUPER_ADMIN')
+  @Permissions('roles.read')
+  @ApiOperation({
+    summary: 'Get role by id',
+  })
+  findOne(@Param('id') id: string) {
+    return this.rolesService.findOne(id);
+  }
+
+  @Post()
+  @Roles('SUPER_ADMIN')
+  @Permissions('roles.create')
+  @ApiOperation({
+    summary: 'Create role',
+  })
+  create(@Body() dto: CreateRoleDto) {
+    return this.rolesService.create(dto);
+  }
+
+  @Patch(':id')
+  @Roles('SUPER_ADMIN')
+  @Permissions('roles.update')
+  @ApiOperation({
+    summary: 'Update role',
+  })
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateRoleDto,
+  ) {
+    return this.rolesService.update(id, dto);
+  }
+
+  @Delete(':id')
+  @Roles('SUPER_ADMIN')
+  @Permissions('roles.delete')
+  @ApiOperation({
+    summary: 'Delete role',
+  })
+  remove(@Param('id') id: string) {
+    return this.rolesService.remove(id);
+  }
+}

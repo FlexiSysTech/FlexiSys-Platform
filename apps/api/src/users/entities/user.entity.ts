@@ -1,23 +1,33 @@
-import { IUser } from '../interfaces/user.interface';
+import { UserStatus } from '@prisma/client';
 
-export class UserEntity implements IUser {
+export class UserEntity {
   id!: string;
 
   username!: string;
 
-  fullName!: string;
-
   email!: string;
 
-  role!: string;
+  fullName!: string;
 
-  isActive!: boolean;
+  phone!: string | null;
+
+  avatar!: string | null;
+
+  status!: UserStatus;
+
+  roles!: string[];
+
+  permissions!: string[];
+
+  lastLoginAt!: Date | null;
+
+  passwordChangedAt!: Date | null;
 
   createdAt!: Date;
 
   updatedAt!: Date;
 
-  constructor(partial: Partial<IUser>) {
+  constructor(partial: Partial<UserEntity>) {
     Object.assign(this, partial);
   }
 }

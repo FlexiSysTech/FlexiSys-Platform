@@ -1,51 +1,57 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
-  IsBoolean,
+  IsArray,
   IsEmail,
+  IsEnum,
   IsOptional,
   IsString,
+  MinLength,
 } from 'class-validator';
+import { UserStatus } from '@prisma/client';
 
 export class UpdateUserDto {
-  @ApiPropertyOptional({
-    example: 'admin',
-  })
+  @ApiPropertyOptional({ example: 'admin' })
   @IsOptional()
   @IsString()
   username?: string;
 
-  @ApiPropertyOptional({
-    example: 'System Administrator',
-  })
-  @IsOptional()
-  @IsString()
-  fullName?: string;
-
-  @ApiPropertyOptional({
-    example: 'admin@flexisys.com',
-  })
+  @ApiPropertyOptional({ example: 'admin@flexisys.com' })
   @IsOptional()
   @IsEmail()
   email?: string;
 
-  @ApiPropertyOptional({
-    example: '123456',
-  })
+  @ApiPropertyOptional({ example: '123456' })
   @IsOptional()
   @IsString()
+  @MinLength(6)
   password?: string;
 
-  @ApiPropertyOptional({
-    example: 'SUPER_ADMIN',
-  })
+  @ApiPropertyOptional({ example: 'System Administrator' })
   @IsOptional()
   @IsString()
-  role?: string;
+  fullName?: string;
+
+  @ApiPropertyOptional({ example: '+966500000000' })
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @ApiPropertyOptional({ example: 'https://example.com/avatar.png' })
+  @IsOptional()
+  @IsString()
+  avatar?: string;
+
+  @ApiPropertyOptional({ enum: UserStatus, example: UserStatus.ACTIVE })
+  @IsOptional()
+  @IsEnum(UserStatus)
+  status?: UserStatus;
 
   @ApiPropertyOptional({
-    example: true,
+    example: ['SUPER_ADMIN', 'HR_MANAGER'],
+    type: [String],
   })
   @IsOptional()
-  @IsBoolean()
-  isActive?: boolean;
+  @IsArray()
+  @IsString({ each: true })
+  roles?: string[];
 }
