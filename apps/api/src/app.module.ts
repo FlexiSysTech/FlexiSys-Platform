@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { EmployeesModule } from './employees/employees.module';
 import { LeaveModule } from './leave/leave.module';
 import { OrganizationModule } from './organization/organization.module';
+import { PayrollModule } from './payroll/payroll.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { PrismaModule } from './prisma';
 import { RolesModule } from './roles/roles.module';
@@ -21,6 +22,7 @@ import { UsersModule } from './users/users.module';
     EmployeesModule,
     AttendanceModule,
     LeaveModule,
+    PayrollModule,
   ],
 })
 export class AppModule {}
