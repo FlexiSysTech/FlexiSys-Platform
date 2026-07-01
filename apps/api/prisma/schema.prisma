@@ -258,6 +258,43 @@ enum SelfServiceRequestStatus {
   CANCELLED
 }
 
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  WHATSAPP
+  PUSH
+  SMS
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  READ
+  CANCELLED
+}
+
+enum WorkflowStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum WorkflowRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum WorkflowStepStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SKIPPED
+}
+
 enum InterviewEvaluationRecommendation {
   HIRE
   HOLD
@@ -278,10 +315,11 @@ model User {
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
-  roles          UserRole[]
-  createdLogs    AuditLog[]      @relation("CreatedBy")
-  employee       Employee?
-  leaveApprovals LeaveApproval[] @relation("LeaveApprovalApprover")
+  roles                   UserRole[]
+  createdLogs             AuditLog[]               @relation("CreatedBy")
+  employee                Employee?
+  leaveApprovals          LeaveApproval[]          @relation("LeaveApprovalApprover")
+  workflowDefinitionSteps WorkflowDefinitionStep[]
 }
 
 model Role {
@@ -293,8 +331,9 @@ model Role {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  users       UserRole[]
-  permissions RolePermission[]
+  users                   UserRole[]
+  permissions             RolePermission[]
+  workflowDefinitionSteps WorkflowDefinitionStep[]
 }
 
 model Permission {
@@ -364,6 +403,8 @@ model Company {
   documentCategories  DocumentCategory[]
   documents           Document[]
   selfServiceRequests SelfServiceRequest[]
+  notifications       Notification[]
+  workflowDefinitions WorkflowDefinition[]
 
   @@index([status])
 }
@@ -525,9 +566,13 @@ model Employee {
   performanceGoals          PerformanceGoal[]
   performanceReviews        PerformanceReview[]       @relation("PerformanceReviewEmployee")
   managedPerformanceReviews PerformanceReview[]       @relation("PerformanceReviewManager")
+  workflowRequests          WorkflowRequest[]
+  workflowApprovals         WorkflowStep[]
   assetAssignments          AssetAssignment[]
   documents                 Document[]
   selfServiceRequests       SelfServiceRequest[]
+  notifications             Notification[]
+  workflowDefinitionSteps   WorkflowDefinitionStep[]
 
   @@unique([companyId, employeeNumber])
   @@index([companyId])
@@ -850,6 +895,7 @@ model JobPosition {
   documentCategories  DocumentCategory[]
   documents           Document[]
   selfServiceRequests SelfServiceRequest[]
+  notifications       Notification[]
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -1103,6 +1149,7 @@ model AssetCategory {
   documentCategories  DocumentCategory[]
   documents           Document[]
   selfServiceRequests SelfServiceRequest[]
+  notifications       Notification[]
   jobPosition         JobPosition?         @relation(fields: [jobPositionId], references: [id])
   jobPositionId       String?
 
@@ -1194,6 +1241,7 @@ model DocumentCategory {
   company             Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
   documents           Document[]
   selfServiceRequests SelfServiceRequest[]
+  notifications       Notification[]
   jobPosition         JobPosition?         @relation(fields: [jobPositionId], references: [id])
   jobPositionId       String?
   assetCategory       AssetCategory?       @relation(fields: [assetCategoryId], references: [id])
@@ -1291,6 +1339,131 @@ model SelfServiceRequest {
   @@index([type])
   @@index([status])
   @@index([submittedAt])
+}
+
+model Notification {
+  id          String              @id @default(cuid())
+  companyId   String?
+  employeeId  String?
+  channel     NotificationChannel @default(IN_APP)
+  status      NotificationStatus  @default(PENDING)
+  title       String
+  message     String
+  metadata    Json?
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  readAt      DateTime?
+  failedAt    DateTime?
+  error       String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  company            Company?          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee           Employee?         @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  jobPosition        JobPosition?      @relation(fields: [jobPositionId], references: [id])
+  jobPositionId      String?
+  assetCategory      AssetCategory?    @relation(fields: [assetCategoryId], references: [id])
+  assetCategoryId    String?
+  documentCategory   DocumentCategory? @relation(fields: [documentCategoryId], references: [id])
+  documentCategoryId String?
+
+  @@index([companyId])
+  @@index([employeeId])
+  @@index([channel])
+  @@index([status])
+  @@index([scheduledAt])
+}
+
+model WorkflowDefinition {
+  id          String         @id @default(cuid())
+  companyId   String
+  code        String
+  name        String
+  description String?
+  entityType  String
+  status      WorkflowStatus @default(DRAFT)
+  isDefault   Boolean        @default(false)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  company  Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  steps    WorkflowDefinitionStep[]
+  requests WorkflowRequest[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([entityType])
+  @@index([status])
+}
+
+model WorkflowDefinitionStep {
+  id                 String   @id @default(cuid())
+  workflowId         String
+  stepOrder          Int
+  name               String
+  approverRoleId     String?
+  approverUserId     String?
+  approverEmployeeId String?
+  isRequired         Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  workflow         WorkflowDefinition @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  approverRole     Role?              @relation(fields: [approverRoleId], references: [id], onDelete: SetNull)
+  approverUser     User?              @relation(fields: [approverUserId], references: [id], onDelete: SetNull)
+  approverEmployee Employee?          @relation(fields: [approverEmployeeId], references: [id], onDelete: SetNull)
+
+  @@unique([workflowId, stepOrder])
+  @@index([workflowId])
+  @@index([approverRoleId])
+  @@index([approverUserId])
+  @@index([approverEmployeeId])
+}
+
+model WorkflowRequest {
+  id          String                @id @default(cuid())
+  workflowId  String
+  requesterId String?
+  entityType  String
+  entityId    String
+  title       String
+  status      WorkflowRequestStatus @default(PENDING)
+  payload     Json?
+  submittedAt DateTime              @default(now())
+  completedAt DateTime?
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  workflow  WorkflowDefinition @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  requester Employee?          @relation(fields: [requesterId], references: [id], onDelete: SetNull)
+  steps     WorkflowStep[]
+
+  @@index([workflowId])
+  @@index([requesterId])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([status])
+}
+
+model WorkflowStep {
+  id         String             @id @default(cuid())
+  requestId  String
+  stepOrder  Int
+  name       String
+  approverId String?
+  status     WorkflowStepStatus @default(PENDING)
+  comments   String?
+  actedAt    DateTime?
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  request  WorkflowRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  approver Employee?       @relation(fields: [approverId], references: [id], onDelete: SetNull)
+
+  @@unique([requestId, stepOrder])
+  @@index([requestId])
+  @@index([approverId])
+  @@index([status])
 }
 
 model AuditLog {
