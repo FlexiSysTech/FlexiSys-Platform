@@ -137,6 +137,19 @@ enum PayslipStatus {
   CANCELLED
 }
 
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum AccountStatus {
+  ACTIVE
+  INACTIVE
+}
+
 enum RecruitmentStatus {
   ACTIVE
   INACTIVE
@@ -420,6 +433,7 @@ model Company {
   salaryComponents    SalaryComponent[]
   payrollPeriods      PayrollPeriod[]
   payrollRuns         PayrollRun[]
+  accounts            Account[]
   jobPositions        JobPosition[]
   vacancies           Vacancy[]
   performanceCycles   PerformanceCycle[]
@@ -431,6 +445,29 @@ model Company {
   notifications       Notification[]
   workflowDefinitions WorkflowDefinition[]
 
+  @@index([status])
+}
+
+model Account {
+  id          String        @id @default(cuid())
+  companyId   String
+  parentId    String?
+  code        String
+  name        String
+  type        AccountType
+  status      AccountStatus @default(ACTIVE)
+  description String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  parent   Account?  @relation("AccountHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children Account[] @relation("AccountHierarchy")
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([parentId])
+  @@index([type])
   @@index([status])
 }
 
