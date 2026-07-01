@@ -1,4 +1,9 @@
 import {
+  PayrollRunStatus,
+} from '@prisma/client';
+import { Decimal } from '@prisma/client/runtime/library';
+
+import {
   ConflictException,
   Injectable,
   NotFoundException,
@@ -12,11 +17,23 @@ import { PayrollRunEntity } from './entities/payroll-run.entity';
 type PayrollRunRecord = {
   id: string;
   companyId: string;
+  periodId: string | null;
   year: number;
   month: number;
-  status: 'DRAFT' | 'PROCESSING' | 'APPROVED' | 'PAID' | 'CANCELLED';
+  status: PayrollRunStatus;
+  grossSalary: Decimal;
+  taxableSalary: Decimal;
+  totalDeductions: Decimal;
+  netSalary: Decimal;
+  employerCost: Decimal;
   startedAt: Date | null;
+  reviewedAt: Date | null;
+  reviewedById: string | null;
   approvedAt: Date | null;
+  approvedById: string | null;
+  rejectedAt: Date | null;
+  rejectedReason: string | null;
+  lockedAt: Date | null;
   paidAt: Date | null;
   notes: string | null;
   createdAt: Date;
@@ -28,7 +45,14 @@ export class PayrollRunsService {
   constructor(private readonly prisma: PrismaService) {}
 
   private toEntity(item: PayrollRunRecord): PayrollRunEntity {
-    return new PayrollRunEntity(item);
+    return new PayrollRunEntity({
+      ...item,
+      grossSalary: item.grossSalary.toNumber(),
+      taxableSalary: item.taxableSalary.toNumber(),
+      totalDeductions: item.totalDeductions.toNumber(),
+      netSalary: item.netSalary.toNumber(),
+      employerCost: item.employerCost.toNumber(),
+    });
   }
 
   async findAll(): Promise<PayrollRunEntity[]> {
@@ -64,9 +88,14 @@ export class PayrollRunsService {
       throw new ConflictException('Payroll run already exists');
     }
 
+    if (dto.periodId) {
+      await this.ensurePayrollPeriodExists(dto.periodId, dto.companyId);
+    }
+
     const item = await this.prisma.payrollRun.create({
       data: {
         companyId: dto.companyId,
+        periodId: dto.periodId,
         year: dto.year,
         month: dto.month,
         status: dto.status ?? 'DRAFT',
@@ -88,15 +117,34 @@ export class PayrollRunsService {
       await this.ensureCompanyExists(dto.companyId);
     }
 
+    if (dto.periodId) {
+      await this.ensurePayrollPeriodExists(dto.periodId, dto.companyId);
+    }
+
+    if (dto.reviewedById) {
+      await this.ensureUserExists(dto.reviewedById, 'Reviewer not found');
+    }
+
+    if (dto.approvedById) {
+      await this.ensureUserExists(dto.approvedById, 'Approver not found');
+    }
+
     const item = await this.prisma.payrollRun.update({
       where: { id },
       data: {
         companyId: dto.companyId,
+        periodId: dto.periodId,
         year: dto.year,
         month: dto.month,
         status: dto.status,
         notes: dto.notes,
+        reviewedAt: dto.status === 'IN_REVIEW' ? new Date() : undefined,
+        reviewedById: dto.reviewedById,
         approvedAt: dto.status === 'APPROVED' ? new Date() : undefined,
+        approvedById: dto.approvedById,
+        rejectedAt: dto.status === 'REJECTED' ? new Date() : undefined,
+        rejectedReason: dto.rejectedReason,
+        lockedAt: dto.status === 'LOCKED' ? new Date() : undefined,
         paidAt: dto.status === 'PAID' ? new Date() : undefined,
       },
     });
@@ -118,5 +166,34 @@ export class PayrollRunsService {
   private async ensureCompanyExists(id: string): Promise<void> {
     const company = await this.prisma.company.findUnique({ where: { id } });
     if (!company) throw new NotFoundException('Company not found');
+  }
+
+  private async ensurePayrollPeriodExists(
+    id: string,
+    companyId?: string,
+  ): Promise<void> {
+    const period = await this.prisma.payrollPeriod.findUnique({
+      where: { id },
+      select: { id: true, companyId: true },
+    });
+
+    if (!period) {
+      throw new NotFoundException('Payroll period not found');
+    }
+
+    if (companyId && period.companyId !== companyId) {
+      throw new ConflictException('Payroll period belongs to another company');
+    }
+  }
+
+  private async ensureUserExists(id: string, message: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException(message);
+    }
   }
 }

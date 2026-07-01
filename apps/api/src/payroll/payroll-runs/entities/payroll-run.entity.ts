@@ -8,6 +8,9 @@ export class PayrollRunEntity {
   @ApiProperty()
   companyId!: string;
 
+  @ApiPropertyOptional({ nullable: true })
+  periodId!: string | null;
+
   @ApiProperty()
   year!: number;
 
@@ -17,11 +20,44 @@ export class PayrollRunEntity {
   @ApiProperty({ enum: PayrollRunStatus })
   status!: PayrollRunStatus;
 
+  @ApiProperty()
+  grossSalary!: number;
+
+  @ApiProperty()
+  taxableSalary!: number;
+
+  @ApiProperty()
+  totalDeductions!: number;
+
+  @ApiProperty()
+  netSalary!: number;
+
+  @ApiProperty()
+  employerCost!: number;
+
   @ApiPropertyOptional({ nullable: true })
   startedAt!: Date | null;
 
   @ApiPropertyOptional({ nullable: true })
+  reviewedAt!: Date | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  reviewedById!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
   approvedAt!: Date | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  approvedById!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  rejectedAt!: Date | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  rejectedReason!: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  lockedAt!: Date | null;
 
   @ApiPropertyOptional({ nullable: true })
   paidAt!: Date | null;

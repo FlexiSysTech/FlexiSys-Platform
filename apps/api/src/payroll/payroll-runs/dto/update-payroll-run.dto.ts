@@ -16,6 +16,11 @@ export class UpdatePayrollRunDto {
   @IsString()
   companyId?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  periodId?: string;
+
   @ApiPropertyOptional({ example: 2026 })
   @IsOptional()
   @IsInt()
@@ -39,4 +44,20 @@ export class UpdatePayrollRunDto {
   @IsString()
   @MaxLength(500)
   notes?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  reviewedById?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  approvedById?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  rejectedReason?: string;
 }

@@ -15,6 +15,11 @@ export class CreatePayrollRunDto {
   @IsString()
   companyId!: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  periodId?: string;
+
   @ApiProperty({ example: 2026 })
   @IsInt()
   @Min(2000)

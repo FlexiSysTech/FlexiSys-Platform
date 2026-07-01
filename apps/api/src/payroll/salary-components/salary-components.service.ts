@@ -6,6 +6,7 @@ import {
 import { Decimal } from '@prisma/client/runtime/library';
 import {
   SalaryComponentCalculationType,
+  SalaryComponentCategory,
   SalaryComponentType,
 } from '@prisma/client';
 
@@ -21,10 +22,17 @@ type SalaryComponentRecord = {
   name: string;
   description: string | null;
   type: SalaryComponentType;
+  category: SalaryComponentCategory;
   calculationType: SalaryComponentCalculationType;
   defaultAmount: Decimal | null;
   defaultPercent: Decimal | null;
+  formula: string | null;
   isTaxable: boolean;
+  affectsGross: boolean;
+  affectsTaxable: boolean;
+  affectsNet: boolean;
+  employerCost: boolean;
+  displayOrder: number;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -71,10 +79,17 @@ export class SalaryComponentsService {
         name: dto.name,
         description: dto.description,
         type: dto.type,
+        category: dto.category ?? this.defaultCategoryForType(dto.type),
         calculationType: dto.calculationType ?? 'FIXED',
         defaultAmount: dto.defaultAmount,
         defaultPercent: dto.defaultPercent,
+        formula: dto.formula,
         isTaxable: dto.isTaxable ?? false,
+        affectsGross: dto.affectsGross ?? true,
+        affectsTaxable: dto.affectsTaxable ?? true,
+        affectsNet: dto.affectsNet ?? true,
+        employerCost: dto.employerCost ?? false,
+        displayOrder: dto.displayOrder ?? 0,
         isActive: dto.isActive ?? true,
       },
     });
@@ -106,10 +121,17 @@ export class SalaryComponentsService {
         name: dto.name,
         description: dto.description,
         type: dto.type,
+        category: dto.category,
         calculationType: dto.calculationType,
         defaultAmount: dto.defaultAmount,
         defaultPercent: dto.defaultPercent,
+        formula: dto.formula,
         isTaxable: dto.isTaxable,
+        affectsGross: dto.affectsGross,
+        affectsTaxable: dto.affectsTaxable,
+        affectsNet: dto.affectsNet,
+        employerCost: dto.employerCost,
+        displayOrder: dto.displayOrder,
         isActive: dto.isActive,
       },
     });
@@ -131,6 +153,12 @@ export class SalaryComponentsService {
   private async ensureCompanyExists(id: string): Promise<void> {
     const company = await this.prisma.company.findUnique({ where: { id } });
     if (!company) throw new NotFoundException('Company not found');
+  }
+
+  private defaultCategoryForType(
+    type: SalaryComponentType,
+  ): SalaryComponentCategory {
+    return type === 'DEDUCTION' ? 'DEDUCTION' : 'OTHER';
   }
 
   private async ensureCodeIsUnique(

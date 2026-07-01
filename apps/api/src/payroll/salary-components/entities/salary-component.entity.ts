@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   SalaryComponentCalculationType,
+  SalaryComponentCategory,
   SalaryComponentType,
 } from '@prisma/client';
 
@@ -23,6 +24,9 @@ export class SalaryComponentEntity {
   @ApiProperty({ enum: SalaryComponentType })
   type!: SalaryComponentType;
 
+  @ApiProperty({ enum: SalaryComponentCategory })
+  category!: SalaryComponentCategory;
+
   @ApiProperty({ enum: SalaryComponentCalculationType })
   calculationType!: SalaryComponentCalculationType;
 
@@ -32,8 +36,26 @@ export class SalaryComponentEntity {
   @ApiPropertyOptional({ nullable: true })
   defaultPercent!: number | null;
 
+  @ApiPropertyOptional({ nullable: true })
+  formula!: string | null;
+
   @ApiProperty()
   isTaxable!: boolean;
+
+  @ApiProperty()
+  affectsGross!: boolean;
+
+  @ApiProperty()
+  affectsTaxable!: boolean;
+
+  @ApiProperty()
+  affectsNet!: boolean;
+
+  @ApiProperty()
+  employerCost!: boolean;
+
+  @ApiProperty()
+  displayOrder!: number;
 
   @ApiProperty()
   isActive!: boolean;
