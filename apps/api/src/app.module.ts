@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 
+import { AssetsModule } from './assets/assets.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { AuthModule } from './auth/auth.module';
+import { DocumentsModule } from './documents/documents.module';
 import { EmployeesModule } from './employees/employees.module';
 import { LeaveModule } from './leave/leave.module';
 import { OrganizationModule } from './organization/organization.module';
@@ -27,6 +29,8 @@ import { UsersModule } from './users/users.module';
     PayrollModule,
     RecruitmentModule,
     PerformanceModule,
+    AssetsModule,
+    DocumentsModule,
   ],
 })
 export class AppModule {}

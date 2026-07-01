@@ -196,6 +196,51 @@ enum PerformanceRating {
   UNSATISFACTORY
 }
 
+enum AssetStatus {
+  AVAILABLE
+  ASSIGNED
+  MAINTENANCE
+  RETIRED
+  LOST
+}
+
+enum AssetAssignmentStatus {
+  ASSIGNED
+  RETURNED
+  LOST
+  DAMAGED
+}
+
+enum AssetMaintenanceStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum DocumentStatus {
+  ACTIVE
+  EXPIRED
+  ARCHIVED
+  DELETED
+}
+
+enum DocumentVisibility {
+  PRIVATE
+  HR_ONLY
+  MANAGER
+  EMPLOYEE
+  PUBLIC
+}
+
+enum DocumentOwnerType {
+  COMPANY
+  EMPLOYEE
+  ASSET
+  RECRUITMENT
+  OTHER
+}
+
 enum InterviewEvaluationRecommendation {
   HIRE
   HOLD
@@ -283,20 +328,24 @@ model Company {
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
 
-  branches          Branch[]
-  departments       Department[]
-  positions         Position[]
-  costCenters       CostCenter[]
-  employees         Employee[]
-  shifts            Shift[]
-  holidays          Holiday[]
-  leaveTypes        LeaveType[]
-  leaveBalances     LeaveBalance[]
-  salaryComponents  SalaryComponent[]
-  payrollRuns       PayrollRun[]
-  jobPositions      JobPosition[]
-  vacancies         Vacancy[]
-  performanceCycles PerformanceCycle[]
+  branches           Branch[]
+  departments        Department[]
+  positions          Position[]
+  costCenters        CostCenter[]
+  employees          Employee[]
+  shifts             Shift[]
+  holidays           Holiday[]
+  leaveTypes         LeaveType[]
+  leaveBalances      LeaveBalance[]
+  salaryComponents   SalaryComponent[]
+  payrollRuns        PayrollRun[]
+  jobPositions       JobPosition[]
+  vacancies          Vacancy[]
+  performanceCycles  PerformanceCycle[]
+  assetCategories    AssetCategory[]
+  assets             Asset[]
+  documentCategories DocumentCategory[]
+  documents          Document[]
 
   @@index([status])
 }
@@ -458,6 +507,8 @@ model Employee {
   performanceGoals          PerformanceGoal[]
   performanceReviews        PerformanceReview[]       @relation("PerformanceReviewEmployee")
   managedPerformanceReviews PerformanceReview[]       @relation("PerformanceReviewManager")
+  assetAssignments          AssetAssignment[]
+  documents                 Document[]
 
   @@unique([companyId, employeeNumber])
   @@index([companyId])
@@ -772,9 +823,13 @@ model JobPosition {
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
-  company           Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  vacancies         Vacancy[]
-  performanceCycles PerformanceCycle[]
+  company            Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  vacancies          Vacancy[]
+  performanceCycles  PerformanceCycle[]
+  assetCategories    AssetCategory[]
+  assets             Asset[]
+  documentCategories DocumentCategory[]
+  documents          Document[]
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -1011,6 +1066,179 @@ model PerformanceReviewItem {
 
   @@index([reviewId])
   @@index([rating])
+}
+
+model AssetCategory {
+  id          String   @id @default(cuid())
+  companyId   String
+  code        String
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company            Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  assets             Asset[]
+  documentCategories DocumentCategory[]
+  documents          Document[]
+  jobPosition        JobPosition?       @relation(fields: [jobPositionId], references: [id])
+  jobPositionId      String?
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([isActive])
+}
+
+model Asset {
+  id           String      @id @default(cuid())
+  companyId    String
+  categoryId   String?
+  code         String
+  name         String
+  serialNumber String?
+  purchaseDate DateTime?
+  purchaseCost Decimal?    @db.Decimal(12, 2)
+  currentValue Decimal?    @db.Decimal(12, 2)
+  location     String?
+  status       AssetStatus @default(AVAILABLE)
+  notes        String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  company       Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  category      AssetCategory?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  assignments   AssetAssignment[]
+  maintenances  AssetMaintenance[]
+  jobPosition   JobPosition?       @relation(fields: [jobPositionId], references: [id])
+  jobPositionId String?
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([categoryId])
+  @@index([status])
+}
+
+model AssetAssignment {
+  id           String                @id @default(cuid())
+  assetId      String
+  employeeId   String
+  assignedAt   DateTime              @default(now())
+  returnedAt   DateTime?
+  status       AssetAssignmentStatus @default(ASSIGNED)
+  conditionOut String?
+  conditionIn  String?
+  notes        String?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  asset    Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([assetId])
+  @@index([employeeId])
+  @@index([status])
+}
+
+model AssetMaintenance {
+  id            String                 @id @default(cuid())
+  assetId       String
+  title         String
+  description   String?
+  vendorName    String?
+  cost          Decimal?               @db.Decimal(12, 2)
+  scheduledDate DateTime?
+  completedDate DateTime?
+  status        AssetMaintenanceStatus @default(SCHEDULED)
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId])
+  @@index([status])
+  @@index([scheduledDate])
+}
+
+model DocumentCategory {
+  id          String   @id @default(cuid())
+  companyId   String
+  code        String
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company         Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  documents       Document[]
+  jobPosition     JobPosition?   @relation(fields: [jobPositionId], references: [id])
+  jobPositionId   String?
+  assetCategory   AssetCategory? @relation(fields: [assetCategoryId], references: [id])
+  assetCategoryId String?
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([isActive])
+}
+
+model Document {
+  id          String             @id @default(cuid())
+  companyId   String
+  categoryId  String?
+  employeeId  String?
+  code        String
+  title       String
+  description String?
+  fileName    String?
+  fileUrl     String?
+  mimeType    String?
+  sizeBytes   Int?
+  ownerType   DocumentOwnerType  @default(COMPANY)
+  visibility  DocumentVisibility @default(HR_ONLY)
+  status      DocumentStatus     @default(ACTIVE)
+  issueDate   DateTime?
+  expiryDate  DateTime?
+  version     Int                @default(1)
+  tags        String?
+  notes       String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  company         Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  category        DocumentCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  employee        Employee?         @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  versions        DocumentVersion[]
+  jobPosition     JobPosition?      @relation(fields: [jobPositionId], references: [id])
+  jobPositionId   String?
+  assetCategory   AssetCategory?    @relation(fields: [assetCategoryId], references: [id])
+  assetCategoryId String?
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([categoryId])
+  @@index([employeeId])
+  @@index([ownerType])
+  @@index([visibility])
+  @@index([status])
+  @@index([expiryDate])
+}
+
+model DocumentVersion {
+  id         String   @id @default(cuid())
+  documentId String
+  version    Int
+  fileName   String?
+  fileUrl    String?
+  mimeType   String?
+  sizeBytes  Int?
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, version])
+  @@index([documentId])
 }
 
 model AuditLog {
