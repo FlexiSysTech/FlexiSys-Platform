@@ -164,6 +164,12 @@ enum OfferStatus {
   CANCELLED
 }
 
+enum InterviewEvaluationRecommendation {
+  HIRE
+  HOLD
+  REJECT
+}
+
 model User {
   id                String     @id @default(cuid())
   username          String     @unique
@@ -406,15 +412,16 @@ model Employee {
   position   Position?   @relation(fields: [positionId], references: [id], onDelete: SetNull)
   costCenter CostCenter? @relation(fields: [costCenterId], references: [id], onDelete: SetNull)
 
-  shiftAssignments  EmployeeShiftAssignment[]
-  attendanceRecords AttendanceRecord[]
-  leaveBalances     LeaveBalance[]
-  leaveRequests     LeaveRequest[]
-  payrollProfiles   PayrollProfile[]
-  payrollItems      PayrollItem[]
-  payslips          Payslip[]
-  jobApplications   JobApplication[]
-  interviews        Interview[]
+  shiftAssignments     EmployeeShiftAssignment[]
+  attendanceRecords    AttendanceRecord[]
+  leaveBalances        LeaveBalance[]
+  leaveRequests        LeaveRequest[]
+  payrollProfiles      PayrollProfile[]
+  payrollItems         PayrollItem[]
+  payslips             Payslip[]
+  jobApplications      JobApplication[]
+  interviews           Interview[]
+  interviewEvaluations InterviewEvaluation[]     @relation("InterviewEvaluationEvaluator")
 
   @@unique([companyId, employeeNumber])
   @@index([companyId])
@@ -813,17 +820,18 @@ model JobApplication {
 }
 
 model Interview {
-  id            String          @id @default(cuid())
+  id            String                @id @default(cuid())
   applicationId String
   interviewerId String?
   scheduledAt   DateTime
   location      String?
   meetingUrl    String?
-  status        InterviewStatus @default(SCHEDULED)
-  score         Decimal?        @db.Decimal(5, 2)
+  status        InterviewStatus       @default(SCHEDULED)
+  score         Decimal?              @db.Decimal(5, 2)
   feedback      String?
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  evaluations   InterviewEvaluation[]
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
 
   application JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   interviewer Employee?      @relation(fields: [interviewerId], references: [id], onDelete: SetNull)
@@ -832,6 +840,25 @@ model Interview {
   @@index([interviewerId])
   @@index([scheduledAt])
   @@index([status])
+}
+
+model InterviewEvaluation {
+  id             String                             @id @default(cuid())
+  interviewId    String
+  evaluatorId    String?
+  criteria       String
+  score          Decimal                            @db.Decimal(5, 2)
+  recommendation InterviewEvaluationRecommendation?
+  comments       String?
+  createdAt      DateTime                           @default(now())
+  updatedAt      DateTime                           @updatedAt
+
+  interview Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  evaluator Employee? @relation("InterviewEvaluationEvaluator", fields: [evaluatorId], references: [id], onDelete: SetNull)
+
+  @@index([interviewId])
+  @@index([evaluatorId])
+  @@index([recommendation])
 }
 
 model OfferLetter {
