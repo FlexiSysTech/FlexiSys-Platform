@@ -241,6 +241,23 @@ enum DocumentOwnerType {
   OTHER
 }
 
+enum SelfServiceRequestType {
+  PROFILE_UPDATE
+  DOCUMENT_REQUEST
+  ASSET_REQUEST
+  PAYSLIP_REQUEST
+  GENERAL
+}
+
+enum SelfServiceRequestStatus {
+  DRAFT
+  SUBMITTED
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
 enum InterviewEvaluationRecommendation {
   HIRE
   HOLD
@@ -328,24 +345,25 @@ model Company {
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
 
-  branches           Branch[]
-  departments        Department[]
-  positions          Position[]
-  costCenters        CostCenter[]
-  employees          Employee[]
-  shifts             Shift[]
-  holidays           Holiday[]
-  leaveTypes         LeaveType[]
-  leaveBalances      LeaveBalance[]
-  salaryComponents   SalaryComponent[]
-  payrollRuns        PayrollRun[]
-  jobPositions       JobPosition[]
-  vacancies          Vacancy[]
-  performanceCycles  PerformanceCycle[]
-  assetCategories    AssetCategory[]
-  assets             Asset[]
-  documentCategories DocumentCategory[]
-  documents          Document[]
+  branches            Branch[]
+  departments         Department[]
+  positions           Position[]
+  costCenters         CostCenter[]
+  employees           Employee[]
+  shifts              Shift[]
+  holidays            Holiday[]
+  leaveTypes          LeaveType[]
+  leaveBalances       LeaveBalance[]
+  salaryComponents    SalaryComponent[]
+  payrollRuns         PayrollRun[]
+  jobPositions        JobPosition[]
+  vacancies           Vacancy[]
+  performanceCycles   PerformanceCycle[]
+  assetCategories     AssetCategory[]
+  assets              Asset[]
+  documentCategories  DocumentCategory[]
+  documents           Document[]
+  selfServiceRequests SelfServiceRequest[]
 
   @@index([status])
 }
@@ -509,6 +527,7 @@ model Employee {
   managedPerformanceReviews PerformanceReview[]       @relation("PerformanceReviewManager")
   assetAssignments          AssetAssignment[]
   documents                 Document[]
+  selfServiceRequests       SelfServiceRequest[]
 
   @@unique([companyId, employeeNumber])
   @@index([companyId])
@@ -823,13 +842,14 @@ model JobPosition {
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
-  company            Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  vacancies          Vacancy[]
-  performanceCycles  PerformanceCycle[]
-  assetCategories    AssetCategory[]
-  assets             Asset[]
-  documentCategories DocumentCategory[]
-  documents          Document[]
+  company             Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  vacancies           Vacancy[]
+  performanceCycles   PerformanceCycle[]
+  assetCategories     AssetCategory[]
+  assets              Asset[]
+  documentCategories  DocumentCategory[]
+  documents           Document[]
+  selfServiceRequests SelfServiceRequest[]
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -1078,12 +1098,13 @@ model AssetCategory {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  company            Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  assets             Asset[]
-  documentCategories DocumentCategory[]
-  documents          Document[]
-  jobPosition        JobPosition?       @relation(fields: [jobPositionId], references: [id])
-  jobPositionId      String?
+  company             Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  assets              Asset[]
+  documentCategories  DocumentCategory[]
+  documents           Document[]
+  selfServiceRequests SelfServiceRequest[]
+  jobPosition         JobPosition?         @relation(fields: [jobPositionId], references: [id])
+  jobPositionId       String?
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -1170,12 +1191,13 @@ model DocumentCategory {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  company         Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  documents       Document[]
-  jobPosition     JobPosition?   @relation(fields: [jobPositionId], references: [id])
-  jobPositionId   String?
-  assetCategory   AssetCategory? @relation(fields: [assetCategoryId], references: [id])
-  assetCategoryId String?
+  company             Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  documents           Document[]
+  selfServiceRequests SelfServiceRequest[]
+  jobPosition         JobPosition?         @relation(fields: [jobPositionId], references: [id])
+  jobPositionId       String?
+  assetCategory       AssetCategory?       @relation(fields: [assetCategoryId], references: [id])
+  assetCategoryId     String?
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -1239,6 +1261,36 @@ model DocumentVersion {
 
   @@unique([documentId, version])
   @@index([documentId])
+}
+
+model SelfServiceRequest {
+  id          String                   @id @default(cuid())
+  employeeId  String
+  type        SelfServiceRequestType
+  title       String
+  description String?
+  status      SelfServiceRequestStatus @default(DRAFT)
+  payload     Json?
+  response    String?
+  submittedAt DateTime?
+  reviewedAt  DateTime?
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+
+  employee           Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  company            Company?          @relation(fields: [companyId], references: [id])
+  companyId          String?
+  jobPosition        JobPosition?      @relation(fields: [jobPositionId], references: [id])
+  jobPositionId      String?
+  assetCategory      AssetCategory?    @relation(fields: [assetCategoryId], references: [id])
+  assetCategoryId    String?
+  documentCategory   DocumentCategory? @relation(fields: [documentCategoryId], references: [id])
+  documentCategoryId String?
+
+  @@index([employeeId])
+  @@index([type])
+  @@index([status])
+  @@index([submittedAt])
 }
 
 model AuditLog {
