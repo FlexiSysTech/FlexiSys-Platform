@@ -162,6 +162,34 @@ enum JournalEntrySource {
   SYSTEM
 }
 
+enum ReportDefinitionStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum ReportParameterType {
+  STRING
+  NUMBER
+  DATE
+  BOOLEAN
+  ENUM
+}
+
+enum ReportExecutionStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum ReportExportFormat {
+  JSON
+  CSV
+  EXCEL
+  PDF
+}
+
 enum RecruitmentStatus {
   ACTIVE
   INACTIVE
@@ -447,6 +475,9 @@ model Company {
   payrollRuns         PayrollRun[]
   accounts            Account[]
   journalEntries      JournalEntry[]
+  reportCategories    ReportCategory[]
+  reportDefinitions   ReportDefinition[]
+  reportExecutions    ReportExecution[]
   jobPositions        JobPosition[]
   vacancies           Vacancy[]
   performanceCycles   PerformanceCycle[]
@@ -540,6 +571,98 @@ model JournalEntryLine {
   @@index([departmentId])
   @@index([branchId])
   @@index([costCenterId])
+}
+
+model ReportCategory {
+  id          String   @id @default(cuid())
+  companyId   String?
+  code        String
+  name        String
+  description String?
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company     Company?           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  definitions ReportDefinition[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([code])
+}
+
+model ReportDefinition {
+  id          String                 @id @default(cuid())
+  companyId   String?
+  categoryId  String?
+  code        String
+  name        String
+  description String?
+  module      String
+  handler     String
+  status      ReportDefinitionStatus @default(ACTIVE)
+  isSystem    Boolean                @default(false)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  company    Company?          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  category   ReportCategory?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  parameters ReportParameter[]
+  executions ReportExecution[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([categoryId])
+  @@index([module])
+  @@index([handler])
+  @@index([status])
+}
+
+model ReportParameter {
+  id           String              @id @default(cuid())
+  reportId     String
+  code         String
+  label        String
+  type         ReportParameterType
+  isRequired   Boolean             @default(false)
+  defaultValue String?
+  options      Json?
+  displayOrder Int                 @default(0)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  report ReportDefinition @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@unique([reportId, code])
+  @@index([reportId])
+  @@index([type])
+}
+
+model ReportExecution {
+  id           String                @id @default(cuid())
+  companyId    String?
+  reportId     String?
+  handler      String
+  status       ReportExecutionStatus @default(PENDING)
+  format       ReportExportFormat    @default(JSON)
+  parameters   Json?
+  rowCount     Int                   @default(0)
+  startedAt    DateTime?
+  completedAt  DateTime?
+  error        String?
+  executedById String?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  company Company?          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  report  ReportDefinition? @relation(fields: [reportId], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([reportId])
+  @@index([handler])
+  @@index([status])
+  @@index([format])
+  @@index([createdAt])
 }
 
 model Branch {

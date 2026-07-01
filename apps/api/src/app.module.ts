@@ -15,6 +15,7 @@ import { PerformanceModule } from './performance/performance.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { PrismaModule } from './prisma';
 import { RecruitmentModule } from './recruitment/recruitment.module';
+import { ReportingModule } from './reporting/reporting.module';
 import { RolesModule } from './roles/roles.module';
 import { UsersModule } from './users/users.module';
 import { WorkflowsModule } from './workflows/workflows.module';
@@ -33,6 +34,7 @@ import { WorkflowsModule } from './workflows/workflows.module';
     LeaveModule,
     PayrollModule,
     RecruitmentModule,
+    ReportingModule,
     PerformanceModule,
     AssetsModule,
     DocumentsModule,
