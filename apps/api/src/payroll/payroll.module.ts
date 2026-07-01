@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { PayrollApprovalModule } from './approval/payroll-approval.module';
 import { PayrollAttendanceModule } from './attendance/payroll-attendance.module';
 import { PayrollCalculationModule } from './calculation/payroll-calculation.module';
 import { PayrollItemsModule } from './payroll-items/payroll-items.module';
@@ -17,6 +18,7 @@ import { SalaryComponentsModule } from './salary-components/salary-components.mo
     PayrollItemsModule,
     PayrollCalculationModule,
     PayrollAttendanceModule,
+    PayrollApprovalModule,
   ],
   exports: [
     SalaryComponentsModule,
@@ -26,6 +28,7 @@ import { SalaryComponentsModule } from './salary-components/salary-components.mo
     PayrollItemsModule,
     PayrollCalculationModule,
     PayrollAttendanceModule,
+    PayrollApprovalModule,
   ],
 })
 export class PayrollModule {}
