@@ -14,7 +14,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { Permissions } from '../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../common/decorators/permissions.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 
 import { CreateUserDto } from './dto/create-user.dto';
@@ -31,7 +31,7 @@ export class UsersController {
 
   @Get()
   @Roles('SUPER_ADMIN')
-  @Permissions('users.read')
+  @Permissions(Permission.USERS_READ)
   @ApiOperation({
     summary: 'Get all users',
   })
@@ -45,7 +45,7 @@ export class UsersController {
 
   @Get(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('users.read')
+  @Permissions(Permission.USERS_READ)
   @ApiOperation({
     summary: 'Get user by id',
   })
@@ -57,7 +57,7 @@ export class UsersController {
 
   @Post()
   @Roles('SUPER_ADMIN')
-  @Permissions('users.create')
+  @Permissions(Permission.USERS_CREATE)
   @ApiOperation({
     summary: 'Create user',
   })
@@ -70,7 +70,7 @@ export class UsersController {
 
   @Patch(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('users.update')
+  @Permissions(Permission.USERS_UPDATE)
   @ApiOperation({
     summary: 'Update user',
   })
@@ -84,7 +84,7 @@ export class UsersController {
 
   @Delete(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('users.delete')
+  @Permissions(Permission.USERS_DELETE)
   @ApiOperation({
     summary: 'Delete user',
   })

@@ -1,7 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AccountingCostCenterReportsService } from './accounting-cost-center-reports.service';
 
@@ -13,7 +13,7 @@ export class AccountingCostCenterReportsController {
 
   @Get('cost-centers')
   @Roles('SUPER_ADMIN')
-  @Permissions('accounting.read')
+  @Permissions(Permission.ACCOUNTING_READ)
   @ApiOperation({ summary: 'Get accounting balances by cost center' })
   byCostCenter() {
     return this.service.byCostCenter();
@@ -21,7 +21,7 @@ export class AccountingCostCenterReportsController {
 
   @Get('departments')
   @Roles('SUPER_ADMIN')
-  @Permissions('accounting.read')
+  @Permissions(Permission.ACCOUNTING_READ)
   @ApiOperation({ summary: 'Get accounting balances by department' })
   byDepartment() {
     return this.service.byDepartment();
@@ -29,7 +29,7 @@ export class AccountingCostCenterReportsController {
 
   @Get('branches')
   @Roles('SUPER_ADMIN')
-  @Permissions('accounting.read')
+  @Permissions(Permission.ACCOUNTING_READ)
   @ApiOperation({ summary: 'Get accounting balances by branch' })
   byBranch() {
     return this.service.byBranch();

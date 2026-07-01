@@ -1,7 +1,7 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { ApplyPayrollAttendanceDto } from './dto/apply-payroll-attendance.dto';
 import { PayrollAttendanceService } from './payroll-attendance.service';
@@ -14,7 +14,7 @@ export class PayrollAttendanceController {
 
   @Post('apply')
   @Roles('SUPER_ADMIN')
-  @Permissions('payroll.update')
+  @Permissions(Permission.PAYROLL_UPDATE)
   @ApiOperation({ summary: 'Apply attendance and leave payroll impacts' })
   applyAttendanceImpacts(@Body() dto: ApplyPayrollAttendanceDto) {
     return this.service.applyAttendanceImpacts(dto.payrollRunId);

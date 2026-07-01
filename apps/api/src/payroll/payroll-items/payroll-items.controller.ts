@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CreatePayrollItemDto } from './dto/create-payroll-item.dto';
 import { UpdatePayrollItemDto } from './dto/update-payroll-item.dto';
@@ -23,7 +23,7 @@ export class PayrollItemsController {
 
   @Get()
   @Roles('SUPER_ADMIN')
-  @Permissions('payroll.read')
+  @Permissions(Permission.PAYROLL_READ)
   @ApiOperation({ summary: 'Get all payroll items' })
   findAll() {
     return this.service.findAll();
@@ -31,7 +31,7 @@ export class PayrollItemsController {
 
   @Get('run/:payrollRunId')
   @Roles('SUPER_ADMIN')
-  @Permissions('payroll.read')
+  @Permissions(Permission.PAYROLL_READ)
   @ApiOperation({ summary: 'Get payroll items by run' })
   findByRun(@Param('payrollRunId') payrollRunId: string) {
     return this.service.findByRun(payrollRunId);
@@ -39,7 +39,7 @@ export class PayrollItemsController {
 
   @Get(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('payroll.read')
+  @Permissions(Permission.PAYROLL_READ)
   @ApiOperation({ summary: 'Get payroll item by id' })
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
@@ -47,7 +47,7 @@ export class PayrollItemsController {
 
   @Post()
   @Roles('SUPER_ADMIN')
-  @Permissions('payroll.create')
+  @Permissions(Permission.PAYROLL_CREATE)
   @ApiOperation({ summary: 'Create payroll item' })
   create(@Body() dto: CreatePayrollItemDto) {
     return this.service.create(dto);
@@ -55,7 +55,7 @@ export class PayrollItemsController {
 
   @Patch(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('payroll.update')
+  @Permissions(Permission.PAYROLL_UPDATE)
   @ApiOperation({ summary: 'Update payroll item' })
   update(@Param('id') id: string, @Body() dto: UpdatePayrollItemDto) {
     return this.service.update(id, dto);
@@ -63,7 +63,7 @@ export class PayrollItemsController {
 
   @Delete(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('payroll.delete')
+  @Permissions(Permission.PAYROLL_DELETE)
   @ApiOperation({ summary: 'Delete payroll item' })
   remove(@Param('id') id: string) {
     return this.service.remove(id);

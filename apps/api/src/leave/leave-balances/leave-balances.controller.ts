@@ -13,7 +13,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CreateLeaveBalanceDto } from './dto/create-leave-balance.dto';
 import { UpdateLeaveBalanceDto } from './dto/update-leave-balance.dto';
@@ -27,7 +27,7 @@ export class LeaveBalancesController {
 
   @Get()
   @Roles('SUPER_ADMIN')
-  @Permissions('leave.read')
+  @Permissions(Permission.LEAVE_READ)
   @ApiOperation({ summary: 'Get all records' })
   findAll() {
     return this.service.findAll();
@@ -35,7 +35,7 @@ export class LeaveBalancesController {
 
   @Get(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('leave.read')
+  @Permissions(Permission.LEAVE_READ)
   @ApiOperation({ summary: 'Get record by id' })
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
@@ -43,7 +43,7 @@ export class LeaveBalancesController {
 
   @Post()
   @Roles('SUPER_ADMIN')
-  @Permissions('leave.create')
+  @Permissions(Permission.LEAVE_CREATE)
   @ApiOperation({ summary: 'Create record' })
   create(@Body() dto: CreateLeaveBalanceDto) {
     return this.service.create(dto);
@@ -51,7 +51,7 @@ export class LeaveBalancesController {
 
   @Patch(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('leave.update')
+  @Permissions(Permission.LEAVE_UPDATE)
   @ApiOperation({ summary: 'Update record' })
   update(@Param('id') id: string, @Body() dto: UpdateLeaveBalanceDto) {
     return this.service.update(id, dto);
@@ -59,7 +59,7 @@ export class LeaveBalancesController {
 
   @Delete(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('leave.delete')
+  @Permissions(Permission.LEAVE_DELETE)
   @ApiOperation({ summary: 'Delete record' })
   remove(@Param('id') id: string) {
     return this.service.remove(id);

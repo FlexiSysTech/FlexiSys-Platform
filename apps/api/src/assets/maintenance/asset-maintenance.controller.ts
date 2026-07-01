@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AssetMaintenanceService } from './asset-maintenance.service';
 import { CreateAssetMaintenanceDto } from './dto/create-asset-maintenance.dto';
@@ -15,7 +15,7 @@ export class AssetMaintenanceController {
 
   @Get()
   @Roles('SUPER_ADMIN')
-  @Permissions('assets.read')
+  @Permissions(Permission.ASSETS_READ)
   @ApiOperation({ summary: 'Get all asset maintenance records' })
   findAll() {
     return this.service.findAll();
@@ -23,7 +23,7 @@ export class AssetMaintenanceController {
 
   @Get(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('assets.read')
+  @Permissions(Permission.ASSETS_READ)
   @ApiOperation({ summary: 'Get asset maintenance by id' })
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
@@ -31,7 +31,7 @@ export class AssetMaintenanceController {
 
   @Post()
   @Roles('SUPER_ADMIN')
-  @Permissions('assets.create')
+  @Permissions(Permission.ASSETS_CREATE)
   @ApiOperation({ summary: 'Create asset maintenance record' })
   create(@Body() dto: CreateAssetMaintenanceDto) {
     return this.service.create(dto);
@@ -39,7 +39,7 @@ export class AssetMaintenanceController {
 
   @Patch(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('assets.update')
+  @Permissions(Permission.ASSETS_UPDATE)
   @ApiOperation({ summary: 'Update asset maintenance record' })
   update(@Param('id') id: string, @Body() dto: UpdateAssetMaintenanceDto) {
     return this.service.update(id, dto);
@@ -47,7 +47,7 @@ export class AssetMaintenanceController {
 
   @Delete(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('assets.delete')
+  @Permissions(Permission.ASSETS_DELETE)
   @ApiOperation({ summary: 'Delete asset maintenance record' })
   remove(@Param('id') id: string) {
     return this.service.remove(id);

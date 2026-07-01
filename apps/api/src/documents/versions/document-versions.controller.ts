@@ -12,7 +12,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { DocumentVersionsService } from './document-versions.service';
 import { CreateDocumentVersionDto } from './dto/create-document-version.dto';
@@ -25,7 +25,7 @@ export class DocumentVersionsController {
 
   @Get()
   @Roles('SUPER_ADMIN')
-  @Permissions('documents.read')
+  @Permissions(Permission.DOCUMENTS_READ)
   @ApiOperation({ summary: 'Get all document versions' })
   findAll() {
     return this.service.findAll();
@@ -33,7 +33,7 @@ export class DocumentVersionsController {
 
   @Get('document/:documentId')
   @Roles('SUPER_ADMIN')
-  @Permissions('documents.read')
+  @Permissions(Permission.DOCUMENTS_READ)
   @ApiOperation({ summary: 'Get versions by document' })
   findByDocument(@Param('documentId') documentId: string) {
     return this.service.findByDocument(documentId);
@@ -41,7 +41,7 @@ export class DocumentVersionsController {
 
   @Get(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('documents.read')
+  @Permissions(Permission.DOCUMENTS_READ)
   @ApiOperation({ summary: 'Get document version by id' })
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
@@ -49,7 +49,7 @@ export class DocumentVersionsController {
 
   @Post()
   @Roles('SUPER_ADMIN')
-  @Permissions('documents.create')
+  @Permissions(Permission.DOCUMENTS_CREATE)
   @ApiOperation({ summary: 'Create document version' })
   create(@Body() dto: CreateDocumentVersionDto) {
     return this.service.create(dto);
@@ -57,7 +57,7 @@ export class DocumentVersionsController {
 
   @Delete(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('documents.delete')
+  @Permissions(Permission.DOCUMENTS_DELETE)
   @ApiOperation({ summary: 'Delete document version' })
   remove(@Param('id') id: string) {
     return this.service.remove(id);

@@ -1,7 +1,7 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { FinanceReportsService } from './finance-reports.service';
 
@@ -13,7 +13,7 @@ export class FinanceReportsController {
 
   @Get('payroll-summary')
   @Roles('SUPER_ADMIN')
-  @Permissions('reporting.read')
+  @Permissions(Permission.REPORTING_READ)
   @ApiOperation({ summary: 'Get payroll summary report' })
   payrollSummary() {
     return this.service.payrollSummary();
@@ -21,7 +21,7 @@ export class FinanceReportsController {
 
   @Get('payslip-summary')
   @Roles('SUPER_ADMIN')
-  @Permissions('reporting.read')
+  @Permissions(Permission.REPORTING_READ)
   @ApiOperation({ summary: 'Get payslip summary report' })
   payslipSummary() {
     return this.service.payslipSummary();
@@ -29,7 +29,7 @@ export class FinanceReportsController {
 
   @Get('trial-balance')
   @Roles('SUPER_ADMIN')
-  @Permissions('reporting.read')
+  @Permissions(Permission.REPORTING_READ)
   @ApiOperation({ summary: 'Get accounting trial balance report' })
   trialBalance() {
     return this.service.trialBalance();
@@ -37,7 +37,7 @@ export class FinanceReportsController {
 
   @Get('general-ledger')
   @Roles('SUPER_ADMIN')
-  @Permissions('reporting.read')
+  @Permissions(Permission.REPORTING_READ)
   @ApiOperation({ summary: 'Get accounting general ledger report' })
   generalLedger(@Query('accountId') accountId?: string) {
     return this.service.generalLedger(accountId);
@@ -45,7 +45,7 @@ export class FinanceReportsController {
 
   @Get('cost-centers')
   @Roles('SUPER_ADMIN')
-  @Permissions('reporting.read')
+  @Permissions(Permission.REPORTING_READ)
   @ApiOperation({ summary: 'Get cost center accounting report' })
   costCenterReport() {
     return this.service.costCenterReport();

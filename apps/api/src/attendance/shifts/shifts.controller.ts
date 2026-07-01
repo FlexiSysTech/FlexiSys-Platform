@@ -13,7 +13,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CreateShiftDto } from './dto/create-shift.dto';
 import { UpdateShiftDto } from './dto/update-shift.dto';
@@ -27,7 +27,7 @@ export class ShiftsController {
 
   @Get()
   @Roles('SUPER_ADMIN')
-  @Permissions('attendance.read')
+  @Permissions(Permission.ATTENDANCE_READ)
   @ApiOperation({ summary: 'Get all shifts' })
   findAll() {
     return this.shiftsService.findAll();
@@ -35,7 +35,7 @@ export class ShiftsController {
 
   @Get(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('attendance.read')
+  @Permissions(Permission.ATTENDANCE_READ)
   @ApiOperation({ summary: 'Get shift by id' })
   findOne(@Param('id') id: string) {
     return this.shiftsService.findOne(id);
@@ -43,7 +43,7 @@ export class ShiftsController {
 
   @Post()
   @Roles('SUPER_ADMIN')
-  @Permissions('attendance.create')
+  @Permissions(Permission.ATTENDANCE_CREATE)
   @ApiOperation({ summary: 'Create shift' })
   create(@Body() dto: CreateShiftDto) {
     return this.shiftsService.create(dto);
@@ -51,7 +51,7 @@ export class ShiftsController {
 
   @Patch(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('attendance.update')
+  @Permissions(Permission.ATTENDANCE_UPDATE)
   @ApiOperation({ summary: 'Update shift' })
   update(@Param('id') id: string, @Body() dto: UpdateShiftDto) {
     return this.shiftsService.update(id, dto);
@@ -59,7 +59,7 @@ export class ShiftsController {
 
   @Delete(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('attendance.delete')
+  @Permissions(Permission.ATTENDANCE_DELETE)
   @ApiOperation({ summary: 'Delete shift' })
   remove(@Param('id') id: string) {
     return this.shiftsService.remove(id);

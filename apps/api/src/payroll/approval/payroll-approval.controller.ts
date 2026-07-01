@@ -1,7 +1,7 @@
 import { Body, Controller, Param, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { PayrollApprovalActionDto } from './dto/payroll-approval-action.dto';
 import { PayrollApprovalService } from './payroll-approval.service';
@@ -14,7 +14,7 @@ export class PayrollApprovalController {
 
   @Post('review')
   @Roles('SUPER_ADMIN')
-  @Permissions('payroll.update')
+  @Permissions(Permission.PAYROLL_UPDATE)
   @ApiOperation({ summary: 'Submit payroll run for review' })
   review(@Param('id') id: string, @Body() dto: PayrollApprovalActionDto) {
     return this.service.submitForReview(id, dto);
@@ -22,7 +22,7 @@ export class PayrollApprovalController {
 
   @Post('approve')
   @Roles('SUPER_ADMIN')
-  @Permissions('payroll.update')
+  @Permissions(Permission.PAYROLL_UPDATE)
   @ApiOperation({ summary: 'Approve payroll run' })
   approve(@Param('id') id: string, @Body() dto: PayrollApprovalActionDto) {
     return this.service.approve(id, dto);
@@ -30,7 +30,7 @@ export class PayrollApprovalController {
 
   @Post('reject')
   @Roles('SUPER_ADMIN')
-  @Permissions('payroll.update')
+  @Permissions(Permission.PAYROLL_UPDATE)
   @ApiOperation({ summary: 'Reject payroll run' })
   reject(@Param('id') id: string, @Body() dto: PayrollApprovalActionDto) {
     return this.service.reject(id, dto);
@@ -38,7 +38,7 @@ export class PayrollApprovalController {
 
   @Post('lock')
   @Roles('SUPER_ADMIN')
-  @Permissions('payroll.update')
+  @Permissions(Permission.PAYROLL_UPDATE)
   @ApiOperation({ summary: 'Lock payroll run' })
   lock(@Param('id') id: string, @Body() dto: PayrollApprovalActionDto) {
     return this.service.lock(id, dto);

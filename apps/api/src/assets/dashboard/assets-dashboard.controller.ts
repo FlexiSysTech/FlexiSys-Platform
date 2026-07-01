@@ -1,7 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AssetsDashboardService } from './assets-dashboard.service';
 
@@ -13,7 +13,7 @@ export class AssetsDashboardController {
 
   @Get('summary')
   @Roles('SUPER_ADMIN')
-  @Permissions('assets.read')
+  @Permissions(Permission.ASSETS_READ)
   @ApiOperation({ summary: 'Get assets dashboard summary' })
   getSummary() {
     return this.service.getSummary();

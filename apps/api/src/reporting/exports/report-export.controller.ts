@@ -1,7 +1,7 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { ExportReportDto } from './dto/export-report.dto';
 import { ReportExportService } from './report-export.service';
@@ -14,7 +14,7 @@ export class ReportExportController {
 
   @Post()
   @Roles('SUPER_ADMIN')
-  @Permissions('reporting.export')
+  @Permissions(Permission.REPORTING_EXPORT)
   @ApiOperation({ summary: 'Export report rows' })
   export(@Body() dto: ExportReportDto) {
     return this.service.export(dto);

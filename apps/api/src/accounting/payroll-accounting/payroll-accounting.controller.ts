@@ -1,7 +1,7 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { GeneratePayrollJournalDto } from './dto/generate-payroll-journal.dto';
 import { PayrollAccountingService } from './payroll-accounting.service';
@@ -14,7 +14,7 @@ export class PayrollAccountingController {
 
   @Post('generate-journal')
   @Roles('SUPER_ADMIN')
-  @Permissions('accounting.create')
+  @Permissions(Permission.ACCOUNTING_CREATE)
   @ApiOperation({ summary: 'Generate journal entry from payroll run' })
   generatePayrollJournal(@Body() dto: GeneratePayrollJournalDto) {
     return this.service.generatePayrollJournal(dto);

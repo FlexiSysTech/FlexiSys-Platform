@@ -13,7 +13,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AssetsService } from './assets.service';
 import { CreateAssetDto } from './dto/create-asset.dto';
@@ -27,7 +27,7 @@ export class AssetsController {
 
   @Get()
   @Roles('SUPER_ADMIN')
-  @Permissions('assets.read')
+  @Permissions(Permission.ASSETS_READ)
   @ApiOperation({ summary: 'Get all assets' })
   findAll() {
     return this.service.findAll();
@@ -35,7 +35,7 @@ export class AssetsController {
 
   @Get(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('assets.read')
+  @Permissions(Permission.ASSETS_READ)
   @ApiOperation({ summary: 'Get asset by id' })
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
@@ -43,7 +43,7 @@ export class AssetsController {
 
   @Post()
   @Roles('SUPER_ADMIN')
-  @Permissions('assets.create')
+  @Permissions(Permission.ASSETS_CREATE)
   @ApiOperation({ summary: 'Create asset' })
   create(@Body() dto: CreateAssetDto) {
     return this.service.create(dto);
@@ -51,7 +51,7 @@ export class AssetsController {
 
   @Patch(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('assets.update')
+  @Permissions(Permission.ASSETS_UPDATE)
   @ApiOperation({ summary: 'Update asset' })
   update(@Param('id') id: string, @Body() dto: UpdateAssetDto) {
     return this.service.update(id, dto);
@@ -59,7 +59,7 @@ export class AssetsController {
 
   @Delete(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('assets.delete')
+  @Permissions(Permission.ASSETS_DELETE)
   @ApiOperation({ summary: 'Delete asset' })
   remove(@Param('id') id: string) {
     return this.service.remove(id);

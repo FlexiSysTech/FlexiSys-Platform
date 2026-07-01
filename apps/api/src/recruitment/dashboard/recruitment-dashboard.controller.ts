@@ -5,7 +5,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RecruitmentDashboardService } from './recruitment-dashboard.service';
 
@@ -17,7 +17,7 @@ export class RecruitmentDashboardController {
 
   @Get('summary')
   @Roles('SUPER_ADMIN')
-  @Permissions('recruitment.read')
+  @Permissions(Permission.RECRUITMENT_READ)
   @ApiOperation({ summary: 'Get recruitment dashboard summary' })
   getSummary() {
     return this.service.getSummary();

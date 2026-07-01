@@ -1,7 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { ReportingDashboardsService } from './reporting-dashboards.service';
 
@@ -13,7 +13,7 @@ export class ReportingDashboardsController {
 
   @Get('executive')
   @Roles('SUPER_ADMIN')
-  @Permissions('reporting.read')
+  @Permissions(Permission.REPORTING_READ)
   @ApiOperation({ summary: 'Get executive dashboard' })
   executiveDashboard() {
     return this.service.executiveDashboard();
@@ -21,7 +21,7 @@ export class ReportingDashboardsController {
 
   @Get('hr')
   @Roles('SUPER_ADMIN')
-  @Permissions('reporting.read')
+  @Permissions(Permission.REPORTING_READ)
   @ApiOperation({ summary: 'Get HR dashboard' })
   hrDashboard() {
     return this.service.hrDashboard();
@@ -29,7 +29,7 @@ export class ReportingDashboardsController {
 
   @Get('payroll')
   @Roles('SUPER_ADMIN')
-  @Permissions('reporting.read')
+  @Permissions(Permission.REPORTING_READ)
   @ApiOperation({ summary: 'Get payroll dashboard' })
   payrollDashboard() {
     return this.service.payrollDashboard();
@@ -37,7 +37,7 @@ export class ReportingDashboardsController {
 
   @Get('accounting')
   @Roles('SUPER_ADMIN')
-  @Permissions('reporting.read')
+  @Permissions(Permission.REPORTING_READ)
   @ApiOperation({ summary: 'Get accounting dashboard' })
   accountingDashboard() {
     return this.service.accountingDashboard();

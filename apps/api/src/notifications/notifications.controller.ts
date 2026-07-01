@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Permissions } from '../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../common/decorators/permissions.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { UpdateNotificationDto } from './dto/update-notification.dto';
@@ -27,7 +27,7 @@ export class NotificationsController {
 
   @Get()
   @Roles('SUPER_ADMIN')
-  @Permissions('notifications.read')
+  @Permissions(Permission.NOTIFICATIONS_READ)
   @ApiOperation({ summary: 'Get all notifications' })
   findAll() {
     return this.service.findAll();
@@ -35,7 +35,7 @@ export class NotificationsController {
 
   @Get('employee/:employeeId')
   @Roles('SUPER_ADMIN')
-  @Permissions('notifications.read')
+  @Permissions(Permission.NOTIFICATIONS_READ)
   @ApiOperation({ summary: 'Get notifications by employee' })
   findByEmployee(@Param('employeeId') employeeId: string) {
     return this.service.findByEmployee(employeeId);
@@ -43,7 +43,7 @@ export class NotificationsController {
 
   @Get(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('notifications.read')
+  @Permissions(Permission.NOTIFICATIONS_READ)
   @ApiOperation({ summary: 'Get notification by id' })
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
@@ -51,7 +51,7 @@ export class NotificationsController {
 
   @Post()
   @Roles('SUPER_ADMIN')
-  @Permissions('notifications.create')
+  @Permissions(Permission.NOTIFICATIONS_CREATE)
   @ApiOperation({ summary: 'Create notification' })
   create(@Body() dto: CreateNotificationDto) {
     return this.service.create(dto);
@@ -59,7 +59,7 @@ export class NotificationsController {
 
   @Patch(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('notifications.update')
+  @Permissions(Permission.NOTIFICATIONS_UPDATE)
   @ApiOperation({ summary: 'Update notification' })
   update(@Param('id') id: string, @Body() dto: UpdateNotificationDto) {
     return this.service.update(id, dto);
@@ -67,7 +67,7 @@ export class NotificationsController {
 
   @Post(':id/read')
   @Roles('SUPER_ADMIN')
-  @Permissions('notifications.update')
+  @Permissions(Permission.NOTIFICATIONS_UPDATE)
   @ApiOperation({ summary: 'Mark notification as read' })
   markAsRead(@Param('id') id: string) {
     return this.service.markAsRead(id);
@@ -75,7 +75,7 @@ export class NotificationsController {
 
   @Post(':id/sent')
   @Roles('SUPER_ADMIN')
-  @Permissions('notifications.update')
+  @Permissions(Permission.NOTIFICATIONS_UPDATE)
   @ApiOperation({ summary: 'Mark notification as sent' })
   markAsSent(@Param('id') id: string) {
     return this.service.markAsSent(id);
@@ -83,7 +83,7 @@ export class NotificationsController {
 
   @Post(':id/cancel')
   @Roles('SUPER_ADMIN')
-  @Permissions('notifications.update')
+  @Permissions(Permission.NOTIFICATIONS_UPDATE)
   @ApiOperation({ summary: 'Cancel notification' })
   cancel(@Param('id') id: string) {
     return this.service.cancel(id);
@@ -91,7 +91,7 @@ export class NotificationsController {
 
   @Post('queue/process')
   @Roles('SUPER_ADMIN')
-  @Permissions('notifications.update')
+  @Permissions(Permission.NOTIFICATIONS_UPDATE)
   @ApiOperation({ summary: 'Process queued notifications' })
   processQueue() {
     return this.queue.processDueNotifications();
@@ -99,7 +99,7 @@ export class NotificationsController {
 
   @Post('queue/retry-failed')
   @Roles('SUPER_ADMIN')
-  @Permissions('notifications.update')
+  @Permissions(Permission.NOTIFICATIONS_UPDATE)
   @ApiOperation({ summary: 'Retry failed notifications' })
   retryFailed() {
     return this.queue.retryFailedNotifications();
@@ -107,7 +107,7 @@ export class NotificationsController {
 
   @Delete(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('notifications.delete')
+  @Permissions(Permission.NOTIFICATIONS_DELETE)
   @ApiOperation({ summary: 'Delete notification' })
   remove(@Param('id') id: string) {
     return this.service.remove(id);

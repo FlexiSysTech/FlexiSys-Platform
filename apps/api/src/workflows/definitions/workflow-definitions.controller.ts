@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CreateWorkflowDefinitionDto } from './dto/create-workflow-definition.dto';
 import { CreateWorkflowStepDto } from './dto/create-workflow-step.dto';
@@ -25,7 +25,7 @@ export class WorkflowDefinitionsController {
 
   @Get()
   @Roles('SUPER_ADMIN')
-  @Permissions('workflows.read')
+  @Permissions(Permission.WORKFLOWS_READ)
   @ApiOperation({ summary: 'Get all workflow definitions' })
   findAll() {
     return this.service.findAll();
@@ -33,7 +33,7 @@ export class WorkflowDefinitionsController {
 
   @Get(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('workflows.read')
+  @Permissions(Permission.WORKFLOWS_READ)
   @ApiOperation({ summary: 'Get workflow definition by id' })
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
@@ -41,7 +41,7 @@ export class WorkflowDefinitionsController {
 
   @Post()
   @Roles('SUPER_ADMIN')
-  @Permissions('workflows.create')
+  @Permissions(Permission.WORKFLOWS_CREATE)
   @ApiOperation({ summary: 'Create workflow definition' })
   create(@Body() dto: CreateWorkflowDefinitionDto) {
     return this.service.create(dto);
@@ -49,7 +49,7 @@ export class WorkflowDefinitionsController {
 
   @Patch(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('workflows.update')
+  @Permissions(Permission.WORKFLOWS_UPDATE)
   @ApiOperation({ summary: 'Update workflow definition' })
   update(@Param('id') id: string, @Body() dto: UpdateWorkflowDefinitionDto) {
     return this.service.update(id, dto);
@@ -57,7 +57,7 @@ export class WorkflowDefinitionsController {
 
   @Post(':id/activate')
   @Roles('SUPER_ADMIN')
-  @Permissions('workflows.update')
+  @Permissions(Permission.WORKFLOWS_UPDATE)
   @ApiOperation({ summary: 'Activate workflow definition' })
   activate(@Param('id') id: string) {
     return this.service.activate(id);
@@ -65,7 +65,7 @@ export class WorkflowDefinitionsController {
 
   @Post(':id/archive')
   @Roles('SUPER_ADMIN')
-  @Permissions('workflows.update')
+  @Permissions(Permission.WORKFLOWS_UPDATE)
   @ApiOperation({ summary: 'Archive workflow definition' })
   archive(@Param('id') id: string) {
     return this.service.archive(id);
@@ -73,7 +73,7 @@ export class WorkflowDefinitionsController {
 
   @Post(':id/steps')
   @Roles('SUPER_ADMIN')
-  @Permissions('workflows.update')
+  @Permissions(Permission.WORKFLOWS_UPDATE)
   @ApiOperation({ summary: 'Add workflow definition step' })
   addStep(@Param('id') id: string, @Body() dto: CreateWorkflowStepDto) {
     return this.service.addStep(id, dto);
@@ -81,7 +81,7 @@ export class WorkflowDefinitionsController {
 
   @Patch(':id/steps/:stepId')
   @Roles('SUPER_ADMIN')
-  @Permissions('workflows.update')
+  @Permissions(Permission.WORKFLOWS_UPDATE)
   @ApiOperation({ summary: 'Update workflow definition step' })
   updateStep(
     @Param('id') id: string,
@@ -93,7 +93,7 @@ export class WorkflowDefinitionsController {
 
   @Delete(':id/steps/:stepId')
   @Roles('SUPER_ADMIN')
-  @Permissions('workflows.update')
+  @Permissions(Permission.WORKFLOWS_UPDATE)
   @ApiOperation({ summary: 'Remove workflow definition step' })
   removeStep(@Param('id') id: string, @Param('stepId') stepId: string) {
     return this.service.removeStep(id, stepId);

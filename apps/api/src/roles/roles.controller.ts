@@ -13,7 +13,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { Permissions } from '../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../common/decorators/permissions.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
@@ -27,7 +27,7 @@ export class RolesController {
 
   @Get()
   @Roles('SUPER_ADMIN')
-  @Permissions('roles.read')
+  @Permissions(Permission.ROLES_READ)
   @ApiOperation({
     summary: 'Get all roles',
   })
@@ -37,7 +37,7 @@ export class RolesController {
 
   @Get(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('roles.read')
+  @Permissions(Permission.ROLES_READ)
   @ApiOperation({
     summary: 'Get role by id',
   })
@@ -47,7 +47,7 @@ export class RolesController {
 
   @Post()
   @Roles('SUPER_ADMIN')
-  @Permissions('roles.create')
+  @Permissions(Permission.ROLES_CREATE)
   @ApiOperation({
     summary: 'Create role',
   })
@@ -57,7 +57,7 @@ export class RolesController {
 
   @Patch(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('roles.update')
+  @Permissions(Permission.ROLES_UPDATE)
   @ApiOperation({
     summary: 'Update role',
   })
@@ -70,7 +70,7 @@ export class RolesController {
 
   @Delete(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('roles.delete')
+  @Permissions(Permission.ROLES_DELETE)
   @ApiOperation({
     summary: 'Delete role',
   })

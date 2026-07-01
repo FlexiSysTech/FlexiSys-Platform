@@ -13,7 +13,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CreateInterviewEvaluationDto } from './dto/create-interview-evaluation.dto';
 import { UpdateInterviewEvaluationDto } from './dto/update-interview-evaluation.dto';
@@ -27,7 +27,7 @@ export class InterviewEvaluationsController {
 
   @Get()
   @Roles('SUPER_ADMIN')
-  @Permissions('recruitment.read')
+  @Permissions(Permission.RECRUITMENT_READ)
   @ApiOperation({ summary: 'Get all interview evaluations' })
   findAll() {
     return this.service.findAll();
@@ -35,7 +35,7 @@ export class InterviewEvaluationsController {
 
   @Get(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('recruitment.read')
+  @Permissions(Permission.RECRUITMENT_READ)
   @ApiOperation({ summary: 'Get interview evaluation by id' })
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
@@ -43,7 +43,7 @@ export class InterviewEvaluationsController {
 
   @Post()
   @Roles('SUPER_ADMIN')
-  @Permissions('recruitment.create')
+  @Permissions(Permission.RECRUITMENT_CREATE)
   @ApiOperation({ summary: 'Create interview evaluation' })
   create(@Body() dto: CreateInterviewEvaluationDto) {
     return this.service.create(dto);
@@ -51,7 +51,7 @@ export class InterviewEvaluationsController {
 
   @Patch(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('recruitment.update')
+  @Permissions(Permission.RECRUITMENT_UPDATE)
   @ApiOperation({ summary: 'Update interview evaluation' })
   update(
     @Param('id') id: string,
@@ -62,7 +62,7 @@ export class InterviewEvaluationsController {
 
   @Delete(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('recruitment.delete')
+  @Permissions(Permission.RECRUITMENT_DELETE)
   @ApiOperation({ summary: 'Delete interview evaluation' })
   remove(@Param('id') id: string) {
     return this.service.remove(id);

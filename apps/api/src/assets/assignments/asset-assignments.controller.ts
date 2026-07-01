@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AssetAssignmentsService } from './asset-assignments.service';
 import { CreateAssetAssignmentDto } from './dto/create-asset-assignment.dto';
@@ -15,7 +15,7 @@ export class AssetAssignmentsController {
 
   @Get()
   @Roles('SUPER_ADMIN')
-  @Permissions('assets.read')
+  @Permissions(Permission.ASSETS_READ)
   @ApiOperation({ summary: 'Get all asset assignments' })
   findAll() {
     return this.service.findAll();
@@ -23,7 +23,7 @@ export class AssetAssignmentsController {
 
   @Get(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('assets.read')
+  @Permissions(Permission.ASSETS_READ)
   @ApiOperation({ summary: 'Get asset assignment by id' })
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
@@ -31,7 +31,7 @@ export class AssetAssignmentsController {
 
   @Post()
   @Roles('SUPER_ADMIN')
-  @Permissions('assets.create')
+  @Permissions(Permission.ASSETS_CREATE)
   @ApiOperation({ summary: 'Assign asset to employee' })
   assign(@Body() dto: CreateAssetAssignmentDto) {
     return this.service.assign(dto);
@@ -39,7 +39,7 @@ export class AssetAssignmentsController {
 
   @Post(':id/return')
   @Roles('SUPER_ADMIN')
-  @Permissions('assets.update')
+  @Permissions(Permission.ASSETS_UPDATE)
   @ApiOperation({ summary: 'Return assigned asset' })
   returnAsset(@Param('id') id: string, @Body() dto: ReturnAssetAssignmentDto) {
     return this.service.returnAsset(id, dto);
@@ -47,7 +47,7 @@ export class AssetAssignmentsController {
 
   @Post(':id/lost')
   @Roles('SUPER_ADMIN')
-  @Permissions('assets.update')
+  @Permissions(Permission.ASSETS_UPDATE)
   @ApiOperation({ summary: 'Mark assigned asset as lost' })
   markLost(@Param('id') id: string) {
     return this.service.markLost(id);
@@ -55,7 +55,7 @@ export class AssetAssignmentsController {
 
   @Delete(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('assets.delete')
+  @Permissions(Permission.ASSETS_DELETE)
   @ApiOperation({ summary: 'Delete asset assignment' })
   remove(@Param('id') id: string) {
     return this.service.remove(id);

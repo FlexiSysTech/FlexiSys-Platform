@@ -10,7 +10,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { DocumentExpirationService } from './document-expiration.service';
 
@@ -22,7 +22,7 @@ export class DocumentExpirationController {
 
   @Post('mark-expired')
   @Roles('SUPER_ADMIN')
-  @Permissions('documents.update')
+  @Permissions(Permission.DOCUMENTS_UPDATE)
   @ApiOperation({ summary: 'Mark expired documents' })
   markExpired() {
     return this.service.markExpired();
@@ -30,7 +30,7 @@ export class DocumentExpirationController {
 
   @Get('expired')
   @Roles('SUPER_ADMIN')
-  @Permissions('documents.read')
+  @Permissions(Permission.DOCUMENTS_READ)
   @ApiOperation({ summary: 'Get expired documents' })
   getExpired() {
     return this.service.getExpired();
@@ -38,7 +38,7 @@ export class DocumentExpirationController {
 
   @Get('soon/:days')
   @Roles('SUPER_ADMIN')
-  @Permissions('documents.read')
+  @Permissions(Permission.DOCUMENTS_READ)
   @ApiOperation({ summary: 'Get documents expiring soon' })
   getExpiringSoon(@Param('days') days: string) {
     return this.service.getExpiringSoon(Number(days));

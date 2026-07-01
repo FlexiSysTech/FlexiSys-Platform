@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CreateReportCategoryDto } from './dto/create-report-category.dto';
 import { CreateReportDefinitionDto } from './dto/create-report-definition.dto';
@@ -17,7 +17,7 @@ export class ReportDefinitionsController {
 
   @Get('categories')
   @Roles('SUPER_ADMIN')
-  @Permissions('reporting.read')
+  @Permissions(Permission.REPORTING_READ)
   @ApiOperation({ summary: 'Get report categories' })
   findCategories() {
     return this.service.findCategories();
@@ -25,7 +25,7 @@ export class ReportDefinitionsController {
 
   @Post('categories')
   @Roles('SUPER_ADMIN')
-  @Permissions('reporting.create')
+  @Permissions(Permission.REPORTING_CREATE)
   @ApiOperation({ summary: 'Create report category' })
   createCategory(@Body() dto: CreateReportCategoryDto) {
     return this.service.createCategory(dto);
@@ -33,7 +33,7 @@ export class ReportDefinitionsController {
 
   @Patch('categories/:id')
   @Roles('SUPER_ADMIN')
-  @Permissions('reporting.update')
+  @Permissions(Permission.REPORTING_UPDATE)
   @ApiOperation({ summary: 'Update report category' })
   updateCategory(@Param('id') id: string, @Body() dto: UpdateReportCategoryDto) {
     return this.service.updateCategory(id, dto);
@@ -41,7 +41,7 @@ export class ReportDefinitionsController {
 
   @Get('definitions')
   @Roles('SUPER_ADMIN')
-  @Permissions('reporting.read')
+  @Permissions(Permission.REPORTING_READ)
   @ApiOperation({ summary: 'Get report definitions' })
   findDefinitions() {
     return this.service.findDefinitions();
@@ -49,7 +49,7 @@ export class ReportDefinitionsController {
 
   @Get('definitions/:id')
   @Roles('SUPER_ADMIN')
-  @Permissions('reporting.read')
+  @Permissions(Permission.REPORTING_READ)
   @ApiOperation({ summary: 'Get report definition by id' })
   findDefinition(@Param('id') id: string) {
     return this.service.findDefinition(id);
@@ -57,7 +57,7 @@ export class ReportDefinitionsController {
 
   @Post('definitions')
   @Roles('SUPER_ADMIN')
-  @Permissions('reporting.create')
+  @Permissions(Permission.REPORTING_CREATE)
   @ApiOperation({ summary: 'Create report definition' })
   createDefinition(@Body() dto: CreateReportDefinitionDto) {
     return this.service.createDefinition(dto);
@@ -65,7 +65,7 @@ export class ReportDefinitionsController {
 
   @Patch('definitions/:id')
   @Roles('SUPER_ADMIN')
-  @Permissions('reporting.update')
+  @Permissions(Permission.REPORTING_UPDATE)
   @ApiOperation({ summary: 'Update report definition' })
   updateDefinition(@Param('id') id: string, @Body() dto: UpdateReportDefinitionDto) {
     return this.service.updateDefinition(id, dto);

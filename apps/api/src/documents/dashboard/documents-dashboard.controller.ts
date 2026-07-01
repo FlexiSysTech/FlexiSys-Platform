@@ -5,7 +5,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { DocumentsDashboardService } from './documents-dashboard.service';
 
@@ -17,7 +17,7 @@ export class DocumentsDashboardController {
 
   @Get('summary')
   @Roles('SUPER_ADMIN')
-  @Permissions('documents.read')
+  @Permissions(Permission.DOCUMENTS_READ)
   @ApiOperation({ summary: 'Get documents dashboard summary' })
   getSummary() {
     return this.service.getSummary();

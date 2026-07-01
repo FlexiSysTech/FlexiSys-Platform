@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CreateJournalEntryDto } from './dto/create-journal-entry.dto';
 import { UpdateJournalEntryDto } from './dto/update-journal-entry.dto';
@@ -23,7 +23,7 @@ export class JournalEntriesController {
 
   @Get()
   @Roles('SUPER_ADMIN')
-  @Permissions('accounting.read')
+  @Permissions(Permission.ACCOUNTING_READ)
   @ApiOperation({ summary: 'Get journal entries' })
   findAll() {
     return this.service.findAll();
@@ -31,7 +31,7 @@ export class JournalEntriesController {
 
   @Get(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('accounting.read')
+  @Permissions(Permission.ACCOUNTING_READ)
   @ApiOperation({ summary: 'Get journal entry by id' })
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
@@ -39,7 +39,7 @@ export class JournalEntriesController {
 
   @Post()
   @Roles('SUPER_ADMIN')
-  @Permissions('accounting.create')
+  @Permissions(Permission.ACCOUNTING_CREATE)
   @ApiOperation({ summary: 'Create balanced journal entry' })
   create(@Body() dto: CreateJournalEntryDto) {
     return this.service.create(dto);
@@ -47,7 +47,7 @@ export class JournalEntriesController {
 
   @Patch(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('accounting.update')
+  @Permissions(Permission.ACCOUNTING_UPDATE)
   @ApiOperation({ summary: 'Update draft journal entry' })
   update(@Param('id') id: string, @Body() dto: UpdateJournalEntryDto) {
     return this.service.update(id, dto);
@@ -55,7 +55,7 @@ export class JournalEntriesController {
 
   @Post(':id/post')
   @Roles('SUPER_ADMIN')
-  @Permissions('accounting.update')
+  @Permissions(Permission.ACCOUNTING_UPDATE)
   @ApiOperation({ summary: 'Post journal entry' })
   post(@Param('id') id: string, @Query('createdById') createdById?: string) {
     return this.service.post(id, createdById);
@@ -63,7 +63,7 @@ export class JournalEntriesController {
 
   @Post(':id/void')
   @Roles('SUPER_ADMIN')
-  @Permissions('accounting.update')
+  @Permissions(Permission.ACCOUNTING_UPDATE)
   @ApiOperation({ summary: 'Void journal entry' })
   void(@Param('id') id: string, @Query('createdById') createdById?: string) {
     return this.service.void(id, createdById);

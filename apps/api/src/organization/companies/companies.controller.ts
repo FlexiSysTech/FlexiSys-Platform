@@ -13,7 +13,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
@@ -27,7 +27,7 @@ export class CompaniesController {
 
   @Get()
   @Roles('SUPER_ADMIN')
-  @Permissions('organization.read')
+  @Permissions(Permission.ORGANIZATION_READ)
   @ApiOperation({
     summary: 'Get all companies',
   })
@@ -37,7 +37,7 @@ export class CompaniesController {
 
   @Get(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('organization.read')
+  @Permissions(Permission.ORGANIZATION_READ)
   @ApiOperation({
     summary: 'Get company by id',
   })
@@ -47,7 +47,7 @@ export class CompaniesController {
 
   @Post()
   @Roles('SUPER_ADMIN')
-  @Permissions('organization.create')
+  @Permissions(Permission.ORGANIZATION_CREATE)
   @ApiOperation({
     summary: 'Create company',
   })
@@ -57,7 +57,7 @@ export class CompaniesController {
 
   @Patch(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('organization.update')
+  @Permissions(Permission.ORGANIZATION_UPDATE)
   @ApiOperation({
     summary: 'Update company',
   })
@@ -70,7 +70,7 @@ export class CompaniesController {
 
   @Delete(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('organization.delete')
+  @Permissions(Permission.ORGANIZATION_DELETE)
   @ApiOperation({
     summary: 'Delete company',
   })

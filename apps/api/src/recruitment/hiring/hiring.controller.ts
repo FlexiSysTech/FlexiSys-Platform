@@ -5,7 +5,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { HireCandidateDto } from './dto/hire-candidate.dto';
 import { HiringService } from './hiring.service';
@@ -18,7 +18,7 @@ export class HiringController {
 
   @Post('hire')
   @Roles('SUPER_ADMIN')
-  @Permissions('recruitment.update')
+  @Permissions(Permission.RECRUITMENT_UPDATE)
   @ApiOperation({ summary: 'Hire candidate and create employee' })
   hireCandidate(@Body() dto: HireCandidateDto) {
     return this.hiringService.hireCandidate(dto);

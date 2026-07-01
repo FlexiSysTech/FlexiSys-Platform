@@ -5,7 +5,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { PerformanceDashboardService } from './performance-dashboard.service';
 
@@ -17,7 +17,7 @@ export class PerformanceDashboardController {
 
   @Get('summary')
   @Roles('SUPER_ADMIN')
-  @Permissions('performance.read')
+  @Permissions(Permission.PERFORMANCE_READ)
   @ApiOperation({ summary: 'Get performance dashboard summary' })
   getSummary() {
     return this.service.getSummary();

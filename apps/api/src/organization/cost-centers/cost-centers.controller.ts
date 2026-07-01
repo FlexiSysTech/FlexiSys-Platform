@@ -13,7 +13,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CreateCostCenterDto } from './dto/create-cost-center.dto';
 import { UpdateCostCenterDto } from './dto/update-cost-center.dto';
@@ -27,7 +27,7 @@ export class CostCentersController {
 
   @Get()
   @Roles('SUPER_ADMIN')
-  @Permissions('organization.read')
+  @Permissions(Permission.ORGANIZATION_READ)
   @ApiOperation({ summary: 'Get all cost centers' })
   findAll() {
     return this.service.findAll();
@@ -35,7 +35,7 @@ export class CostCentersController {
 
   @Get(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('organization.read')
+  @Permissions(Permission.ORGANIZATION_READ)
   @ApiOperation({ summary: 'Get cost centers by id' })
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
@@ -43,7 +43,7 @@ export class CostCentersController {
 
   @Post()
   @Roles('SUPER_ADMIN')
-  @Permissions('organization.create')
+  @Permissions(Permission.ORGANIZATION_CREATE)
   @ApiOperation({ summary: 'Create cost centers' })
   create(@Body() dto: CreateCostCenterDto) {
     return this.service.create(dto);
@@ -51,7 +51,7 @@ export class CostCentersController {
 
   @Patch(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('organization.update')
+  @Permissions(Permission.ORGANIZATION_UPDATE)
   @ApiOperation({ summary: 'Update cost centers' })
   update(@Param('id') id: string, @Body() dto: UpdateCostCenterDto) {
     return this.service.update(id, dto);
@@ -59,7 +59,7 @@ export class CostCentersController {
 
   @Delete(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('organization.delete')
+  @Permissions(Permission.ORGANIZATION_DELETE)
   @ApiOperation({ summary: 'Delete cost centers' })
   remove(@Param('id') id: string) {
     return this.service.remove(id);

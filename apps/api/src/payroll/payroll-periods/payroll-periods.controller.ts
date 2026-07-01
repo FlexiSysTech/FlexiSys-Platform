@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CreatePayrollPeriodDto } from './dto/create-payroll-period.dto';
 import { UpdatePayrollPeriodDto } from './dto/update-payroll-period.dto';
@@ -23,7 +23,7 @@ export class PayrollPeriodsController {
 
   @Get()
   @Roles('SUPER_ADMIN')
-  @Permissions('payroll.read')
+  @Permissions(Permission.PAYROLL_READ)
   @ApiOperation({ summary: 'Get all payroll periods' })
   findAll() {
     return this.service.findAll();
@@ -31,7 +31,7 @@ export class PayrollPeriodsController {
 
   @Get(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('payroll.read')
+  @Permissions(Permission.PAYROLL_READ)
   @ApiOperation({ summary: 'Get payroll period by id' })
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
@@ -39,7 +39,7 @@ export class PayrollPeriodsController {
 
   @Post()
   @Roles('SUPER_ADMIN')
-  @Permissions('payroll.create')
+  @Permissions(Permission.PAYROLL_CREATE)
   @ApiOperation({ summary: 'Create payroll period' })
   create(@Body() dto: CreatePayrollPeriodDto) {
     return this.service.create(dto);
@@ -47,7 +47,7 @@ export class PayrollPeriodsController {
 
   @Patch(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('payroll.update')
+  @Permissions(Permission.PAYROLL_UPDATE)
   @ApiOperation({ summary: 'Update payroll period' })
   update(@Param('id') id: string, @Body() dto: UpdatePayrollPeriodDto) {
     return this.service.update(id, dto);
@@ -55,7 +55,7 @@ export class PayrollPeriodsController {
 
   @Delete(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('payroll.delete')
+  @Permissions(Permission.PAYROLL_DELETE)
   @ApiOperation({ summary: 'Delete payroll period' })
   remove(@Param('id') id: string) {
     return this.service.remove(id);

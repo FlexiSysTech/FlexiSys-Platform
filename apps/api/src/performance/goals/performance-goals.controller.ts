@@ -13,7 +13,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CreatePerformanceGoalDto } from './dto/create-performance-goal.dto';
 import { UpdatePerformanceGoalDto } from './dto/update-performance-goal.dto';
@@ -27,7 +27,7 @@ export class PerformanceGoalsController {
 
   @Get()
   @Roles('SUPER_ADMIN')
-  @Permissions('performance.read')
+  @Permissions(Permission.PERFORMANCE_READ)
   @ApiOperation({ summary: 'Get all performance goals' })
   findAll() {
     return this.service.findAll();
@@ -35,7 +35,7 @@ export class PerformanceGoalsController {
 
   @Get(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('performance.read')
+  @Permissions(Permission.PERFORMANCE_READ)
   @ApiOperation({ summary: 'Get performance goal by id' })
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
@@ -43,7 +43,7 @@ export class PerformanceGoalsController {
 
   @Post()
   @Roles('SUPER_ADMIN')
-  @Permissions('performance.create')
+  @Permissions(Permission.PERFORMANCE_CREATE)
   @ApiOperation({ summary: 'Create performance goal' })
   create(@Body() dto: CreatePerformanceGoalDto) {
     return this.service.create(dto);
@@ -51,7 +51,7 @@ export class PerformanceGoalsController {
 
   @Patch(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('performance.update')
+  @Permissions(Permission.PERFORMANCE_UPDATE)
   @ApiOperation({ summary: 'Update performance goal' })
   update(@Param('id') id: string, @Body() dto: UpdatePerformanceGoalDto) {
     return this.service.update(id, dto);
@@ -59,7 +59,7 @@ export class PerformanceGoalsController {
 
   @Delete(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('performance.delete')
+  @Permissions(Permission.PERFORMANCE_DELETE)
   @ApiOperation({ summary: 'Delete performance goal' })
   remove(@Param('id') id: string) {
     return this.service.remove(id);

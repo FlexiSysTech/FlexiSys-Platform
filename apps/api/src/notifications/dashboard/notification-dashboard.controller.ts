@@ -1,7 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { NotificationDashboardService } from './notification-dashboard.service';
 
@@ -13,7 +13,7 @@ export class NotificationDashboardController {
 
   @Get()
   @Roles('SUPER_ADMIN')
-  @Permissions('notifications.read')
+  @Permissions(Permission.NOTIFICATIONS_READ)
   @ApiOperation({ summary: 'Get notification dashboard summary' })
   getSummary() {
     return this.service.getSummary();

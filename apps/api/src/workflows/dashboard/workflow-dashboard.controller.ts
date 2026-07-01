@@ -1,7 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { WorkflowDashboardService } from './workflow-dashboard.service';
 
@@ -13,7 +13,7 @@ export class WorkflowDashboardController {
 
   @Get()
   @Roles('SUPER_ADMIN')
-  @Permissions('workflows.read')
+  @Permissions(Permission.WORKFLOWS_READ)
   @ApiOperation({ summary: 'Get workflow dashboard summary' })
   getSummary() {
     return this.service.getSummary();

@@ -13,7 +13,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CreateInterviewDto } from './dto/create-interview.dto';
 import { UpdateInterviewDto } from './dto/update-interview.dto';
@@ -27,7 +27,7 @@ export class InterviewsController {
 
   @Get()
   @Roles('SUPER_ADMIN')
-  @Permissions('recruitment.read')
+  @Permissions(Permission.RECRUITMENT_READ)
   @ApiOperation({ summary: 'Get all interviews' })
   findAll() {
     return this.service.findAll();
@@ -35,7 +35,7 @@ export class InterviewsController {
 
   @Get(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('recruitment.read')
+  @Permissions(Permission.RECRUITMENT_READ)
   @ApiOperation({ summary: 'Get interview by id' })
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
@@ -43,7 +43,7 @@ export class InterviewsController {
 
   @Post()
   @Roles('SUPER_ADMIN')
-  @Permissions('recruitment.create')
+  @Permissions(Permission.RECRUITMENT_CREATE)
   @ApiOperation({ summary: 'Create interview' })
   create(@Body() dto: CreateInterviewDto) {
     return this.service.create(dto);
@@ -51,7 +51,7 @@ export class InterviewsController {
 
   @Patch(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('recruitment.update')
+  @Permissions(Permission.RECRUITMENT_UPDATE)
   @ApiOperation({ summary: 'Update interview' })
   update(@Param('id') id: string, @Body() dto: UpdateInterviewDto) {
     return this.service.update(id, dto);
@@ -59,7 +59,7 @@ export class InterviewsController {
 
   @Delete(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('recruitment.delete')
+  @Permissions(Permission.RECRUITMENT_DELETE)
   @ApiOperation({ summary: 'Delete interview' })
   remove(@Param('id') id: string) {
     return this.service.remove(id);

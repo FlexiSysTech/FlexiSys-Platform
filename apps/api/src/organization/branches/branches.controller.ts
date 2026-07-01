@@ -13,7 +13,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CreateBranchDto } from './dto/create-branch.dto';
 import { UpdateBranchDto } from './dto/update-branch.dto';
@@ -27,7 +27,7 @@ export class BranchesController {
 
   @Get()
   @Roles('SUPER_ADMIN')
-  @Permissions('organization.read')
+  @Permissions(Permission.ORGANIZATION_READ)
   @ApiOperation({ summary: 'Get all branches' })
   findAll() {
     return this.service.findAll();
@@ -35,7 +35,7 @@ export class BranchesController {
 
   @Get(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('organization.read')
+  @Permissions(Permission.ORGANIZATION_READ)
   @ApiOperation({ summary: 'Get branches by id' })
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
@@ -43,7 +43,7 @@ export class BranchesController {
 
   @Post()
   @Roles('SUPER_ADMIN')
-  @Permissions('organization.create')
+  @Permissions(Permission.ORGANIZATION_CREATE)
   @ApiOperation({ summary: 'Create branches' })
   create(@Body() dto: CreateBranchDto) {
     return this.service.create(dto);
@@ -51,7 +51,7 @@ export class BranchesController {
 
   @Patch(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('organization.update')
+  @Permissions(Permission.ORGANIZATION_UPDATE)
   @ApiOperation({ summary: 'Update branches' })
   update(@Param('id') id: string, @Body() dto: UpdateBranchDto) {
     return this.service.update(id, dto);
@@ -59,7 +59,7 @@ export class BranchesController {
 
   @Delete(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('organization.delete')
+  @Permissions(Permission.ORGANIZATION_DELETE)
   @ApiOperation({ summary: 'Delete branches' })
   remove(@Param('id') id: string) {
     return this.service.remove(id);

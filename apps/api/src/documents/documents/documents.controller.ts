@@ -13,7 +13,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
@@ -27,7 +27,7 @@ export class DocumentsController {
 
   @Get()
   @Roles('SUPER_ADMIN')
-  @Permissions('documents.read')
+  @Permissions(Permission.DOCUMENTS_READ)
   @ApiOperation({ summary: 'Get all documents' })
   findAll() {
     return this.service.findAll();
@@ -35,7 +35,7 @@ export class DocumentsController {
 
   @Get(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('documents.read')
+  @Permissions(Permission.DOCUMENTS_READ)
   @ApiOperation({ summary: 'Get document by id' })
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
@@ -43,7 +43,7 @@ export class DocumentsController {
 
   @Post()
   @Roles('SUPER_ADMIN')
-  @Permissions('documents.create')
+  @Permissions(Permission.DOCUMENTS_CREATE)
   @ApiOperation({ summary: 'Create document' })
   create(@Body() dto: CreateDocumentDto) {
     return this.service.create(dto);
@@ -51,7 +51,7 @@ export class DocumentsController {
 
   @Patch(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('documents.update')
+  @Permissions(Permission.DOCUMENTS_UPDATE)
   @ApiOperation({ summary: 'Update document' })
   update(@Param('id') id: string, @Body() dto: UpdateDocumentDto) {
     return this.service.update(id, dto);
@@ -59,7 +59,7 @@ export class DocumentsController {
 
   @Post(':id/archive')
   @Roles('SUPER_ADMIN')
-  @Permissions('documents.update')
+  @Permissions(Permission.DOCUMENTS_UPDATE)
   @ApiOperation({ summary: 'Archive document' })
   archive(@Param('id') id: string) {
     return this.service.archive(id);
@@ -67,7 +67,7 @@ export class DocumentsController {
 
   @Delete(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('documents.delete')
+  @Permissions(Permission.DOCUMENTS_DELETE)
   @ApiOperation({ summary: 'Soft delete document' })
   remove(@Param('id') id: string) {
     return this.service.remove(id);

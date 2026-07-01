@@ -13,7 +13,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CreatePositionDto } from './dto/create-position.dto';
 import { UpdatePositionDto } from './dto/update-position.dto';
@@ -27,7 +27,7 @@ export class PositionsController {
 
   @Get()
   @Roles('SUPER_ADMIN')
-  @Permissions('organization.read')
+  @Permissions(Permission.ORGANIZATION_READ)
   @ApiOperation({ summary: 'Get all positions' })
   findAll() {
     return this.service.findAll();
@@ -35,7 +35,7 @@ export class PositionsController {
 
   @Get(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('organization.read')
+  @Permissions(Permission.ORGANIZATION_READ)
   @ApiOperation({ summary: 'Get positions by id' })
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
@@ -43,7 +43,7 @@ export class PositionsController {
 
   @Post()
   @Roles('SUPER_ADMIN')
-  @Permissions('organization.create')
+  @Permissions(Permission.ORGANIZATION_CREATE)
   @ApiOperation({ summary: 'Create positions' })
   create(@Body() dto: CreatePositionDto) {
     return this.service.create(dto);
@@ -51,7 +51,7 @@ export class PositionsController {
 
   @Patch(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('organization.update')
+  @Permissions(Permission.ORGANIZATION_UPDATE)
   @ApiOperation({ summary: 'Update positions' })
   update(@Param('id') id: string, @Body() dto: UpdatePositionDto) {
     return this.service.update(id, dto);
@@ -59,7 +59,7 @@ export class PositionsController {
 
   @Delete(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('organization.delete')
+  @Permissions(Permission.ORGANIZATION_DELETE)
   @ApiOperation({ summary: 'Delete positions' })
   remove(@Param('id') id: string) {
     return this.service.remove(id);

@@ -13,7 +13,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CreatePayrollRunDto } from './dto/create-payroll-run.dto';
 import { UpdatePayrollRunDto } from './dto/update-payroll-run.dto';
@@ -27,7 +27,7 @@ export class PayrollRunsController {
 
   @Get()
   @Roles('SUPER_ADMIN')
-  @Permissions('payroll.read')
+  @Permissions(Permission.PAYROLL_READ)
   @ApiOperation({ summary: 'Get all records' })
   findAll() {
     return this.service.findAll();
@@ -35,7 +35,7 @@ export class PayrollRunsController {
 
   @Get(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('payroll.read')
+  @Permissions(Permission.PAYROLL_READ)
   @ApiOperation({ summary: 'Get record by id' })
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
@@ -43,7 +43,7 @@ export class PayrollRunsController {
 
   @Post()
   @Roles('SUPER_ADMIN')
-  @Permissions('payroll.create')
+  @Permissions(Permission.PAYROLL_CREATE)
   @ApiOperation({ summary: 'Create record' })
   create(@Body() dto: CreatePayrollRunDto) {
     return this.service.create(dto);
@@ -51,7 +51,7 @@ export class PayrollRunsController {
 
   @Patch(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('payroll.update')
+  @Permissions(Permission.PAYROLL_UPDATE)
   @ApiOperation({ summary: 'Update record' })
   update(@Param('id') id: string, @Body() dto: UpdatePayrollRunDto) {
     return this.service.update(id, dto);
@@ -59,7 +59,7 @@ export class PayrollRunsController {
 
   @Delete(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('payroll.delete')
+  @Permissions(Permission.PAYROLL_DELETE)
   @ApiOperation({ summary: 'Delete record' })
   remove(@Param('id') id: string) {
     return this.service.remove(id);

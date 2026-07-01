@@ -13,7 +13,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CreateHolidayDto } from './dto/create-holiday.dto';
 import { UpdateHolidayDto } from './dto/update-holiday.dto';
@@ -27,7 +27,7 @@ export class HolidaysController {
 
   @Get()
   @Roles('SUPER_ADMIN')
-  @Permissions('attendance.read')
+  @Permissions(Permission.ATTENDANCE_READ)
   @ApiOperation({ summary: 'Get all holidays' })
   findAll() {
     return this.holidaysService.findAll();
@@ -35,7 +35,7 @@ export class HolidaysController {
 
   @Get(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('attendance.read')
+  @Permissions(Permission.ATTENDANCE_READ)
   @ApiOperation({ summary: 'Get holiday by id' })
   findOne(@Param('id') id: string) {
     return this.holidaysService.findOne(id);
@@ -43,7 +43,7 @@ export class HolidaysController {
 
   @Post()
   @Roles('SUPER_ADMIN')
-  @Permissions('attendance.create')
+  @Permissions(Permission.ATTENDANCE_CREATE)
   @ApiOperation({ summary: 'Create holiday' })
   create(@Body() dto: CreateHolidayDto) {
     return this.holidaysService.create(dto);
@@ -51,7 +51,7 @@ export class HolidaysController {
 
   @Patch(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('attendance.update')
+  @Permissions(Permission.ATTENDANCE_UPDATE)
   @ApiOperation({ summary: 'Update holiday' })
   update(@Param('id') id: string, @Body() dto: UpdateHolidayDto) {
     return this.holidaysService.update(id, dto);
@@ -59,7 +59,7 @@ export class HolidaysController {
 
   @Delete(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('attendance.delete')
+  @Permissions(Permission.ATTENDANCE_DELETE)
   @ApiOperation({ summary: 'Delete holiday' })
   remove(@Param('id') id: string) {
     return this.holidaysService.remove(id);

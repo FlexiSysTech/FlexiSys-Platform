@@ -1,7 +1,7 @@
 import { Controller, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { NotificationJobsService } from './notification-jobs.service';
 
@@ -13,7 +13,7 @@ export class NotificationJobsController {
 
   @Post('scheduled')
   @Roles('SUPER_ADMIN')
-  @Permissions('notifications.update')
+  @Permissions(Permission.NOTIFICATIONS_UPDATE)
   @ApiOperation({ summary: 'Run scheduled notification delivery job' })
   runScheduledNotifications() {
     return this.service.runScheduledNotifications();
@@ -21,7 +21,7 @@ export class NotificationJobsController {
 
   @Post('retry-failed')
   @Roles('SUPER_ADMIN')
-  @Permissions('notifications.update')
+  @Permissions(Permission.NOTIFICATIONS_UPDATE)
   @ApiOperation({ summary: 'Run failed notification retry job' })
   retryFailedNotifications() {
     return this.service.retryFailedNotifications();
@@ -29,7 +29,7 @@ export class NotificationJobsController {
 
   @Post('expire-workflows')
   @Roles('SUPER_ADMIN')
-  @Permissions('workflows.update')
+  @Permissions(Permission.WORKFLOWS_UPDATE)
   @ApiOperation({ summary: 'Expire stale workflow requests' })
   expireStaleWorkflowRequests(@Query('days') days?: string) {
     return this.service.expireStaleWorkflowRequests(this.toPositiveNumber(days, 30));
@@ -37,7 +37,7 @@ export class NotificationJobsController {
 
   @Post('cleanup')
   @Roles('SUPER_ADMIN')
-  @Permissions('notifications.delete')
+  @Permissions(Permission.NOTIFICATIONS_DELETE)
   @ApiOperation({ summary: 'Cleanup old delivered notifications' })
   cleanupNotifications(@Query('days') days?: string) {
     return this.service.cleanupNotifications(this.toPositiveNumber(days, 180));
@@ -45,7 +45,7 @@ export class NotificationJobsController {
 
   @Post('maintenance')
   @Roles('SUPER_ADMIN')
-  @Permissions('notifications.update')
+  @Permissions(Permission.NOTIFICATIONS_UPDATE)
   @ApiOperation({ summary: 'Run notification and workflow maintenance jobs' })
   runMaintenance() {
     return this.service.runMaintenance();

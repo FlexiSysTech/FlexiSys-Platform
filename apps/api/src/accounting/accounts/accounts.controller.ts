@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AccountsService } from './accounts.service';
 import { CreateAccountDto } from './dto/create-account.dto';
@@ -24,7 +24,7 @@ export class AccountsController {
 
   @Get()
   @Roles('SUPER_ADMIN')
-  @Permissions('accounting.read')
+  @Permissions(Permission.ACCOUNTING_READ)
   @ApiOperation({ summary: 'Get chart of accounts' })
   findAll() {
     return this.service.findAll();
@@ -32,7 +32,7 @@ export class AccountsController {
 
   @Get(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('accounting.read')
+  @Permissions(Permission.ACCOUNTING_READ)
   @ApiOperation({ summary: 'Get account by id' })
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
@@ -40,7 +40,7 @@ export class AccountsController {
 
   @Post()
   @Roles('SUPER_ADMIN')
-  @Permissions('accounting.create')
+  @Permissions(Permission.ACCOUNTING_CREATE)
   @ApiOperation({ summary: 'Create account' })
   create(@Body() dto: CreateAccountDto) {
     return this.service.create(dto);
@@ -48,7 +48,7 @@ export class AccountsController {
 
   @Patch(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('accounting.update')
+  @Permissions(Permission.ACCOUNTING_UPDATE)
   @ApiOperation({ summary: 'Update account' })
   update(@Param('id') id: string, @Body() dto: UpdateAccountDto) {
     return this.service.update(id, dto);
@@ -56,7 +56,7 @@ export class AccountsController {
 
   @Delete(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('accounting.delete')
+  @Permissions(Permission.ACCOUNTING_DELETE)
   @ApiOperation({ summary: 'Delete account' })
   remove(@Param('id') id: string, @Query('createdById') createdById?: string) {
     return this.service.remove(id, createdById);

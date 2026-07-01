@@ -13,7 +13,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { Permissions } from '../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../common/decorators/permissions.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
@@ -27,7 +27,7 @@ export class EmployeesController {
 
   @Get()
   @Roles('SUPER_ADMIN')
-  @Permissions('employees.read')
+  @Permissions(Permission.EMPLOYEES_READ)
   @ApiOperation({ summary: 'Get all employees' })
   findAll() {
     return this.employeesService.findAll();
@@ -35,7 +35,7 @@ export class EmployeesController {
 
   @Get(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('employees.read')
+  @Permissions(Permission.EMPLOYEES_READ)
   @ApiOperation({ summary: 'Get employee by id' })
   findOne(@Param('id') id: string) {
     return this.employeesService.findOne(id);
@@ -43,7 +43,7 @@ export class EmployeesController {
 
   @Post()
   @Roles('SUPER_ADMIN')
-  @Permissions('employees.create')
+  @Permissions(Permission.EMPLOYEES_CREATE)
   @ApiOperation({ summary: 'Create employee' })
   create(@Body() dto: CreateEmployeeDto) {
     return this.employeesService.create(dto);
@@ -51,7 +51,7 @@ export class EmployeesController {
 
   @Patch(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('employees.update')
+  @Permissions(Permission.EMPLOYEES_UPDATE)
   @ApiOperation({ summary: 'Update employee' })
   update(
     @Param('id') id: string,
@@ -62,7 +62,7 @@ export class EmployeesController {
 
   @Delete(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('employees.delete')
+  @Permissions(Permission.EMPLOYEES_DELETE)
   @ApiOperation({ summary: 'Delete employee' })
   remove(@Param('id') id: string) {
     return this.employeesService.remove(id);

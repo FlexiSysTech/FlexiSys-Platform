@@ -13,7 +13,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AttendanceRecordsService } from './attendance-records.service';
 import { CreateAttendanceRecordDto } from './dto/create-attendance-record.dto';
@@ -29,7 +29,7 @@ export class AttendanceRecordsController {
 
   @Get()
   @Roles('SUPER_ADMIN')
-  @Permissions('attendance.read')
+  @Permissions(Permission.ATTENDANCE_READ)
   @ApiOperation({ summary: 'Get all attendance records' })
   findAll() {
     return this.attendanceRecordsService.findAll();
@@ -37,7 +37,7 @@ export class AttendanceRecordsController {
 
   @Get(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('attendance.read')
+  @Permissions(Permission.ATTENDANCE_READ)
   @ApiOperation({ summary: 'Get attendance record by id' })
   findOne(@Param('id') id: string) {
     return this.attendanceRecordsService.findOne(id);
@@ -45,7 +45,7 @@ export class AttendanceRecordsController {
 
   @Post()
   @Roles('SUPER_ADMIN')
-  @Permissions('attendance.create')
+  @Permissions(Permission.ATTENDANCE_CREATE)
   @ApiOperation({ summary: 'Create attendance record' })
   create(@Body() dto: CreateAttendanceRecordDto) {
     return this.attendanceRecordsService.create(dto);
@@ -53,7 +53,7 @@ export class AttendanceRecordsController {
 
   @Patch(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('attendance.update')
+  @Permissions(Permission.ATTENDANCE_UPDATE)
   @ApiOperation({ summary: 'Update attendance record' })
   update(
     @Param('id') id: string,
@@ -64,7 +64,7 @@ export class AttendanceRecordsController {
 
   @Delete(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('attendance.delete')
+  @Permissions(Permission.ATTENDANCE_DELETE)
   @ApiOperation({ summary: 'Delete attendance record' })
   remove(@Param('id') id: string) {
     return this.attendanceRecordsService.remove(id);

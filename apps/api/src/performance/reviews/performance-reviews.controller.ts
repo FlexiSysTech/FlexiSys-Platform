@@ -13,7 +13,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CreatePerformanceReviewDto } from './dto/create-performance-review.dto';
 import { UpdatePerformanceReviewDto } from './dto/update-performance-review.dto';
@@ -27,7 +27,7 @@ export class PerformanceReviewsController {
 
   @Get()
   @Roles('SUPER_ADMIN')
-  @Permissions('performance.read')
+  @Permissions(Permission.PERFORMANCE_READ)
   @ApiOperation({ summary: 'Get all performance reviews' })
   findAll() {
     return this.service.findAll();
@@ -35,7 +35,7 @@ export class PerformanceReviewsController {
 
   @Get(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('performance.read')
+  @Permissions(Permission.PERFORMANCE_READ)
   @ApiOperation({ summary: 'Get performance review by id' })
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
@@ -43,7 +43,7 @@ export class PerformanceReviewsController {
 
   @Post()
   @Roles('SUPER_ADMIN')
-  @Permissions('performance.create')
+  @Permissions(Permission.PERFORMANCE_CREATE)
   @ApiOperation({ summary: 'Create performance review' })
   create(@Body() dto: CreatePerformanceReviewDto) {
     return this.service.create(dto);
@@ -51,7 +51,7 @@ export class PerformanceReviewsController {
 
   @Patch(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('performance.update')
+  @Permissions(Permission.PERFORMANCE_UPDATE)
   @ApiOperation({ summary: 'Update performance review' })
   update(@Param('id') id: string, @Body() dto: UpdatePerformanceReviewDto) {
     return this.service.update(id, dto);
@@ -59,7 +59,7 @@ export class PerformanceReviewsController {
 
   @Delete(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('performance.delete')
+  @Permissions(Permission.PERFORMANCE_DELETE)
   @ApiOperation({ summary: 'Delete performance review' })
   remove(@Param('id') id: string) {
     return this.service.remove(id);

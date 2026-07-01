@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { Permissions } from '../../common/decorators/permissions.decorator';
+import { Permission, Permissions } from '../../common/decorators/permissions.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { SubmitWorkflowRequestDto } from './dto/submit-workflow-request.dto';
 import { WorkflowActionDto } from './dto/workflow-action.dto';
@@ -15,7 +15,7 @@ export class WorkflowRuntimeController {
 
   @Get()
   @Roles('SUPER_ADMIN')
-  @Permissions('workflows.read')
+  @Permissions(Permission.WORKFLOWS_READ)
   @ApiOperation({ summary: 'Get all workflow requests' })
   findAll() {
     return this.service.findAll();
@@ -23,7 +23,7 @@ export class WorkflowRuntimeController {
 
   @Get(':id')
   @Roles('SUPER_ADMIN')
-  @Permissions('workflows.read')
+  @Permissions(Permission.WORKFLOWS_READ)
   @ApiOperation({ summary: 'Get workflow request by id' })
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
@@ -31,7 +31,7 @@ export class WorkflowRuntimeController {
 
   @Get(':id/history')
   @Roles('SUPER_ADMIN')
-  @Permissions('workflows.read')
+  @Permissions(Permission.WORKFLOWS_READ)
   @ApiOperation({ summary: 'Get workflow request history' })
   history(@Param('id') id: string) {
     return this.service.history(id);
@@ -39,7 +39,7 @@ export class WorkflowRuntimeController {
 
   @Post()
   @Roles('SUPER_ADMIN')
-  @Permissions('workflows.create')
+  @Permissions(Permission.WORKFLOWS_CREATE)
   @ApiOperation({ summary: 'Submit workflow request' })
   submit(@Body() dto: SubmitWorkflowRequestDto) {
     return this.service.submit(dto);
@@ -47,7 +47,7 @@ export class WorkflowRuntimeController {
 
   @Post(':id/steps/:stepId/approve')
   @Roles('SUPER_ADMIN')
-  @Permissions('workflows.update')
+  @Permissions(Permission.WORKFLOWS_UPDATE)
   @ApiOperation({ summary: 'Approve workflow step' })
   approve(
     @Param('id') id: string,
@@ -59,7 +59,7 @@ export class WorkflowRuntimeController {
 
   @Post(':id/steps/:stepId/reject')
   @Roles('SUPER_ADMIN')
-  @Permissions('workflows.update')
+  @Permissions(Permission.WORKFLOWS_UPDATE)
   @ApiOperation({ summary: 'Reject workflow step' })
   reject(
     @Param('id') id: string,
@@ -71,7 +71,7 @@ export class WorkflowRuntimeController {
 
   @Post(':id/cancel')
   @Roles('SUPER_ADMIN')
-  @Permissions('workflows.update')
+  @Permissions(Permission.WORKFLOWS_UPDATE)
   @ApiOperation({ summary: 'Cancel workflow request' })
   cancel(@Param('id') id: string) {
     return this.service.cancel(id);
