@@ -9,6 +9,7 @@ import { RequestContextMiddleware } from './request-context/request-context.midd
 import { RequestContextInterceptor } from './request-context/request-context.interceptor';
 import { RequestContextService } from './request-context/request-context.service';
 import { PaginationService } from './pagination/pagination.service';
+import { SoftDeleteService } from './soft-delete/soft-delete.service';
 
 @Global()
 @Module({
@@ -16,6 +17,7 @@ import { PaginationService } from './pagination/pagination.service';
     RequestContextService,
     PaginationService,
     AuditService,
+    SoftDeleteService,
     PrismaAuditStorage,
     {
       provide: AUDIT_STORAGE,
@@ -30,7 +32,13 @@ import { PaginationService } from './pagination/pagination.service';
       useClass: AuditInterceptor,
     },
   ],
-  exports: [RequestContextService, PaginationService, AuditService, AUDIT_STORAGE],
+  exports: [
+    RequestContextService,
+    PaginationService,
+    AuditService,
+    SoftDeleteService,
+    AUDIT_STORAGE,
+  ],
 })
 export class PlatformModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
