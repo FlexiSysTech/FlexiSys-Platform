@@ -13,13 +13,17 @@ import { Permissions } from '../common/decorators/permissions.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { UpdateNotificationDto } from './dto/update-notification.dto';
+import { NotificationQueueService } from './queue/notification-queue.service';
 import { NotificationsService } from './notifications.service';
 
 @ApiTags('Notifications')
 @ApiBearerAuth()
 @Controller('notifications')
 export class NotificationsController {
-  constructor(private readonly service: NotificationsService) {}
+  constructor(
+    private readonly service: NotificationsService,
+    private readonly queue: NotificationQueueService,
+  ) {}
 
   @Get()
   @Roles('SUPER_ADMIN')
@@ -83,6 +87,22 @@ export class NotificationsController {
   @ApiOperation({ summary: 'Cancel notification' })
   cancel(@Param('id') id: string) {
     return this.service.cancel(id);
+  }
+
+  @Post('queue/process')
+  @Roles('SUPER_ADMIN')
+  @Permissions('notifications.update')
+  @ApiOperation({ summary: 'Process queued notifications' })
+  processQueue() {
+    return this.queue.processDueNotifications();
+  }
+
+  @Post('queue/retry-failed')
+  @Roles('SUPER_ADMIN')
+  @Permissions('notifications.update')
+  @ApiOperation({ summary: 'Retry failed notifications' })
+  retryFailed() {
+    return this.queue.retryFailedNotifications();
   }
 
   @Delete(':id')
