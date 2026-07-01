@@ -12,6 +12,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { OrganizationModule } from './organization/organization.module';
 import { PayrollModule } from './payroll/payroll.module';
 import { PerformanceModule } from './performance/performance.module';
+import { PlatformModule } from './platform/platform.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { PrismaModule } from './prisma';
 import { RecruitmentModule } from './recruitment/recruitment.module';
@@ -22,6 +23,7 @@ import { WorkflowsModule } from './workflows/workflows.module';
 
 @Module({
   imports: [
+    PlatformModule,
     PrismaModule,
     AccountingModule,
     AuthModule,
