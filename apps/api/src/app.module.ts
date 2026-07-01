@@ -16,6 +16,7 @@ import { PrismaModule } from './prisma';
 import { RecruitmentModule } from './recruitment/recruitment.module';
 import { RolesModule } from './roles/roles.module';
 import { UsersModule } from './users/users.module';
+import { WorkflowsModule } from './workflows/workflows.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { UsersModule } from './users/users.module';
     DocumentsModule,
     EssModule,
     NotificationsModule,
+    WorkflowsModule,
   ],
 })
 export class AppModule {}
