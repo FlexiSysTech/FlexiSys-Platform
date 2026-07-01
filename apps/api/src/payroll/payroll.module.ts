@@ -6,6 +6,7 @@ import { PayrollCalculationModule } from './calculation/payroll-calculation.modu
 import { PayrollItemsModule } from './payroll-items/payroll-items.module';
 import { PayrollPeriodsModule } from './payroll-periods/payroll-periods.module';
 import { PayrollProfilesModule } from './payroll-profiles/payroll-profiles.module';
+import { PayrollReportsModule } from './reports/payroll-reports.module';
 import { PayrollRunsModule } from './payroll-runs/payroll-runs.module';
 import { PayslipsModule } from './payslips/payslips.module';
 import { SalaryComponentsModule } from './salary-components/salary-components.module';
@@ -21,6 +22,7 @@ import { SalaryComponentsModule } from './salary-components/salary-components.mo
     PayrollAttendanceModule,
     PayrollApprovalModule,
     PayslipsModule,
+    PayrollReportsModule,
   ],
   exports: [
     SalaryComponentsModule,
@@ -32,6 +34,7 @@ import { SalaryComponentsModule } from './salary-components/salary-components.mo
     PayrollAttendanceModule,
     PayrollApprovalModule,
     PayslipsModule,
+    PayrollReportsModule,
   ],
 })
 export class PayrollModule {}
