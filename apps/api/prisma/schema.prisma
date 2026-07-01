@@ -150,6 +150,18 @@ enum AccountStatus {
   INACTIVE
 }
 
+enum JournalEntryStatus {
+  DRAFT
+  POSTED
+  VOID
+}
+
+enum JournalEntrySource {
+  MANUAL
+  PAYROLL
+  SYSTEM
+}
+
 enum RecruitmentStatus {
   ACTIVE
   INACTIVE
@@ -434,6 +446,7 @@ model Company {
   payrollPeriods      PayrollPeriod[]
   payrollRuns         PayrollRun[]
   accounts            Account[]
+  journalEntries      JournalEntry[]
   jobPositions        JobPosition[]
   vacancies           Vacancy[]
   performanceCycles   PerformanceCycle[]
@@ -460,15 +473,73 @@ model Account {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
-  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  parent   Account?  @relation("AccountHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children Account[] @relation("AccountHierarchy")
+  company  Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  parent   Account?           @relation("AccountHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children Account[]          @relation("AccountHierarchy")
+  lines    JournalEntryLine[]
 
   @@unique([companyId, code])
   @@index([companyId])
   @@index([parentId])
   @@index([type])
   @@index([status])
+}
+
+model JournalEntry {
+  id          String             @id @default(cuid())
+  companyId   String
+  entryNumber String
+  entryDate   DateTime
+  description String?
+  status      JournalEntryStatus @default(DRAFT)
+  source      JournalEntrySource @default(MANUAL)
+  sourceRef   String?
+  totalDebit  Decimal            @default(0) @db.Decimal(14, 2)
+  totalCredit Decimal            @default(0) @db.Decimal(14, 2)
+  postedAt    DateTime?
+  voidedAt    DateTime?
+  createdById String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  company Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  lines   JournalEntryLine[]
+
+  @@unique([companyId, entryNumber])
+  @@index([companyId])
+  @@index([entryDate])
+  @@index([status])
+  @@index([source])
+  @@index([sourceRef])
+}
+
+model JournalEntryLine {
+  id             String   @id @default(cuid())
+  journalEntryId String
+  accountId      String
+  debit          Decimal  @default(0) @db.Decimal(14, 2)
+  credit         Decimal  @default(0) @db.Decimal(14, 2)
+  description    String?
+  employeeId     String?
+  departmentId   String?
+  branchId       String?
+  costCenterId   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  journalEntry JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  account      Account      @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  employee     Employee?    @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  department   Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  branch       Branch?      @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  costCenter   CostCenter?  @relation(fields: [costCenterId], references: [id], onDelete: SetNull)
+
+  @@index([journalEntryId])
+  @@index([accountId])
+  @@index([employeeId])
+  @@index([departmentId])
+  @@index([branchId])
+  @@index([costCenterId])
 }
 
 model Branch {
@@ -485,12 +556,13 @@ model Branch {
   createdAt DateTime           @default(now())
   updatedAt DateTime           @updatedAt
 
-  company     Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  departments Department[]
-  costCenters CostCenter[]
-  employees   Employee[]
-  shifts      Shift[]
-  holidays    Holiday[]
+  company           Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  departments       Department[]
+  costCenters       CostCenter[]
+  employees         Employee[]
+  shifts            Shift[]
+  holidays          Holiday[]
+  journalEntryLines JournalEntryLine[]
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -509,12 +581,13 @@ model Department {
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
 
-  company   Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branch    Branch?      @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  parent    Department?  @relation("DepartmentHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children  Department[] @relation("DepartmentHierarchy")
-  positions Position[]
-  employees Employee[]
+  company           Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch            Branch?            @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  parent            Department?        @relation("DepartmentHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children          Department[]       @relation("DepartmentHierarchy")
+  positions         Position[]
+  employees         Employee[]
+  journalEntryLines JournalEntryLine[]
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -555,9 +628,10 @@ model CostCenter {
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
 
-  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branch    Branch?    @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  employees Employee[]
+  company           Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch            Branch?            @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  employees         Employee[]
+  journalEntryLines JournalEntryLine[]
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -622,6 +696,7 @@ model Employee {
   payrollProfiles           PayrollProfile[]
   payrollItems              PayrollItem[]
   payslips                  Payslip[]
+  journalEntryLines         JournalEntryLine[]
   jobApplications           JobApplication[]
   interviews                Interview[]
   interviewEvaluations      InterviewEvaluation[]     @relation("InterviewEvaluationEvaluator")
