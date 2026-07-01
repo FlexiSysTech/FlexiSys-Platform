@@ -10,6 +10,7 @@ import { RequestContextInterceptor } from './request-context/request-context.int
 import { RequestContextService } from './request-context/request-context.service';
 import { PaginationService } from './pagination/pagination.service';
 import { SoftDeleteService } from './soft-delete/soft-delete.service';
+import { StatusTransitionService } from './status-transitions/status-transition.service';
 
 @Global()
 @Module({
@@ -18,6 +19,7 @@ import { SoftDeleteService } from './soft-delete/soft-delete.service';
     PaginationService,
     AuditService,
     SoftDeleteService,
+    StatusTransitionService,
     PrismaAuditStorage,
     {
       provide: AUDIT_STORAGE,
@@ -37,6 +39,7 @@ import { SoftDeleteService } from './soft-delete/soft-delete.service';
     PaginationService,
     AuditService,
     SoftDeleteService,
+    StatusTransitionService,
     AUDIT_STORAGE,
   ],
 })
