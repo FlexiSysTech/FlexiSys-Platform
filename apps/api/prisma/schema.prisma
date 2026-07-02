@@ -2290,6 +2290,137 @@ model BiKpiSnapshot {
   @@index([calculatedAt])
 }
 
+model BiDataset {
+  id          String          @id @default(cuid())
+  tenantId    String?
+  companyId   String?
+  branchId    String?
+  code        String
+  name        String
+  description String?
+  source      String
+  entityType  String?
+  refreshCron String?
+  status      BiDatasetStatus @default(ACTIVE)
+  metadata    Json?
+  deletedAt   DateTime?
+  deletedById String?
+  createdById String?
+  updatedById String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  tenant     Tenant?                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company    Company?               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch     Branch?                @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  metrics    BiMetricDefinition[]
+  executions BiAnalyticsExecution[]
+
+  @@unique([tenantId, companyId, code])
+  @@index([tenantId])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([source])
+  @@index([entityType])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model BiMetricDefinition {
+  id          String          @id @default(cuid())
+  tenantId    String?
+  companyId   String?
+  branchId    String?
+  datasetId   String?
+  code        String
+  name        String
+  description String?
+  metricType  BiMetricType    @default(COUNT)
+  expression  String?
+  valueType   BiKpiValueType  @default(NUMBER)
+  status      BiDatasetStatus @default(ACTIVE)
+  metadata    Json?
+  deletedAt   DateTime?
+  deletedById String?
+  createdById String?
+  updatedById String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  tenant       Tenant?               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company      Company?              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch       Branch?               @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  dataset      BiDataset?            @relation(fields: [datasetId], references: [id], onDelete: SetNull)
+  observations BiMetricObservation[]
+
+  @@unique([tenantId, companyId, code])
+  @@index([tenantId])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([datasetId])
+  @@index([metricType])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model BiMetricObservation {
+  id          String              @id @default(cuid())
+  tenantId    String?
+  companyId   String?
+  branchId    String?
+  metricId    String
+  period      BiAggregationPeriod @default(MONTHLY)
+  observedAt  DateTime            @default(now())
+  value       Decimal             @db.Decimal(18, 4)
+  dimensions  Json?
+  metadata    Json?
+  createdById String?
+  createdAt   DateTime            @default(now())
+
+  tenant  Tenant?            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company Company?           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch  Branch?            @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  metric  BiMetricDefinition @relation(fields: [metricId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([metricId])
+  @@index([period])
+  @@index([observedAt])
+}
+
+model BiAnalyticsExecution {
+  id            String            @id @default(cuid())
+  tenantId      String?
+  companyId     String?
+  branchId      String?
+  datasetId     String?
+  executionType String
+  status        BiExecutionStatus @default(PENDING)
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  durationMs    Int?
+  result        Json?
+  error         String?
+  createdById   String?
+  createdAt     DateTime          @default(now())
+
+  tenant  Tenant?    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company Company?   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch  Branch?    @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  dataset BiDataset? @relation(fields: [datasetId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([datasetId])
+  @@index([executionType])
+  @@index([status])
+  @@index([startedAt])
+  @@index([createdAt])
+}
+
 model Account {
   id          String        @id @default(cuid())
   companyId   String
@@ -2478,26 +2609,26 @@ model Branch {
   createdAt DateTime           @default(now())
   updatedAt DateTime           @updatedAt
 
-  tenant            Tenant?            @relation(fields: [tenantId], references: [id], onDelete: SetNull)
-  company           Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  departments       Department[]
-  costCenters       CostCenter[]
-  employees         Employee[]
-  shifts            Shift[]
-  holidays          Holiday[]
-  journalEntryLines JournalEntryLine[]
-  businessRules     BusinessRule[]
-  mobileDevices     MobileDevice[]
-  mobileSessions    MobileSession[]
-  mobileSyncCursors MobileSyncCursor[]
-  mobileSyncChanges MobileSyncChange[]
-  searchIndexes     SearchIndex[]
-  searchQueryLogs   SearchQueryLog[]
-  biKpiDefinitions  BiKpiDefinition[]
-  biKpiSnapshots    BiKpiSnapshot[]
-  biDatasets        BiDataset[]
-  biMetricDefinitions BiMetricDefinition[]
-  biMetricObservations BiMetricObservation[]
+  tenant                Tenant?                @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  company               Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  departments           Department[]
+  costCenters           CostCenter[]
+  employees             Employee[]
+  shifts                Shift[]
+  holidays              Holiday[]
+  journalEntryLines     JournalEntryLine[]
+  businessRules         BusinessRule[]
+  mobileDevices         MobileDevice[]
+  mobileSessions        MobileSession[]
+  mobileSyncCursors     MobileSyncCursor[]
+  mobileSyncChanges     MobileSyncChange[]
+  searchIndexes         SearchIndex[]
+  searchQueryLogs       SearchQueryLog[]
+  biKpiDefinitions      BiKpiDefinition[]
+  biKpiSnapshots        BiKpiSnapshot[]
+  biDatasets            BiDataset[]
+  biMetricDefinitions   BiMetricDefinition[]
+  biMetricObservations  BiMetricObservation[]
   biAnalyticsExecutions BiAnalyticsExecution[]
 
   @@unique([companyId, code])

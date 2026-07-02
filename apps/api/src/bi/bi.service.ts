@@ -13,6 +13,21 @@ import {
   RecordBiKpiSnapshotDto,
   UpdateBiKpiDto,
 } from './dto/bi-kpi.dto';
+import {
+  BiDatasetQueryDto,
+  BiMetricQueryDto,
+  CreateBiDatasetDto,
+  CreateBiMetricDto,
+  RecordBiMetricObservationDto,
+  UpdateBiDatasetDto,
+  UpdateBiMetricDto,
+} from './dto/bi-analytics.dto';
+import {
+  BiAnalyticsExecutionEntity,
+  BiDatasetEntity,
+  BiMetricEntity,
+  BiMetricObservationEntity,
+} from './entities/bi-analytics.entity';
 import { BiKpiEntity, BiKpiSnapshotEntity } from './entities/bi-kpi.entity';
 
 @Injectable()
@@ -233,11 +248,234 @@ export class BiService {
     );
   }
 
+  async findDatasets(query: BiDatasetQueryDto) {
+    const where: Prisma.BiDatasetWhereInput = this.softDelete.activeWhere({
+      ...(this.context.getTenantId() ? { tenantId: this.context.getTenantId() } : {}),
+      ...(query.companyId ? { companyId: query.companyId } : {}),
+      ...(query.status ? { status: query.status } : {}),
+    });
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.biDataset.findMany({
+        where,
+        orderBy: { name: 'asc' },
+        ...this.pagination.getSkipTake(query),
+      }),
+      this.prisma.biDataset.count({ where }),
+    ]);
+    return this.pagination.buildResponse(
+      items.map((item) => new BiDatasetEntity(item)),
+      total,
+      query,
+    );
+  }
+
+  async createDataset(dto: CreateBiDatasetDto) {
+    const tenantId = this.context.getTenantId();
+    const companyId = dto.companyId ?? this.context.getCompanyId();
+    const item = await this.prisma.biDataset.create({
+      data: {
+        tenantId,
+        companyId,
+        branchId: dto.branchId ?? this.context.getBranchId(),
+        code: dto.code,
+        name: dto.name,
+        description: dto.description,
+        source: dto.source,
+        entityType: dto.entityType,
+        refreshCron: dto.refreshCron,
+        status: dto.status ?? 'ACTIVE',
+        metadata: dto.metadata === undefined ? Prisma.JsonNull : this.toJson(dto.metadata),
+        createdById: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'BI_DATASET_CREATE',
+      entity: 'BiDataset',
+      entityId: item.id,
+      payload: { code: item.code, source: item.source },
+    });
+    return new BiDatasetEntity(item);
+  }
+
+  async updateDataset(id: string, dto: UpdateBiDatasetDto) {
+    await this.ensureDatasetExists(id);
+    const item = await this.prisma.biDataset.update({
+      where: { id },
+      data: {
+        companyId: dto.companyId,
+        branchId: dto.branchId,
+        code: dto.code,
+        name: dto.name,
+        description: dto.description,
+        source: dto.source,
+        entityType: dto.entityType,
+        refreshCron: dto.refreshCron,
+        status: dto.status,
+        metadata: dto.metadata === undefined ? undefined : this.toJson(dto.metadata),
+        updatedById: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'BI_DATASET_UPDATE',
+      entity: 'BiDataset',
+      entityId: item.id,
+      payload: { status: item.status },
+    });
+    return new BiDatasetEntity(item);
+  }
+
+  async findMetrics(query: BiMetricQueryDto) {
+    const where: Prisma.BiMetricDefinitionWhereInput = this.softDelete.activeWhere({
+      ...(this.context.getTenantId() ? { tenantId: this.context.getTenantId() } : {}),
+      ...(query.datasetId ? { datasetId: query.datasetId } : {}),
+      ...(query.status ? { status: query.status } : {}),
+    });
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.biMetricDefinition.findMany({
+        where,
+        orderBy: { name: 'asc' },
+        ...this.pagination.getSkipTake(query),
+      }),
+      this.prisma.biMetricDefinition.count({ where }),
+    ]);
+    return this.pagination.buildResponse(
+      items.map((item) => new BiMetricEntity(item)),
+      total,
+      query,
+    );
+  }
+
+  async createMetric(dto: CreateBiMetricDto) {
+    if (dto.datasetId) await this.ensureDatasetExists(dto.datasetId);
+    const item = await this.prisma.biMetricDefinition.create({
+      data: {
+        tenantId: this.context.getTenantId(),
+        companyId: dto.companyId ?? this.context.getCompanyId(),
+        branchId: this.context.getBranchId(),
+        datasetId: dto.datasetId,
+        code: dto.code,
+        name: dto.name,
+        description: dto.description,
+        metricType: dto.metricType ?? 'COUNT',
+        expression: dto.expression,
+        valueType: dto.valueType ?? 'NUMBER',
+        status: dto.status ?? 'ACTIVE',
+        createdById: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'BI_METRIC_CREATE',
+      entity: 'BiMetricDefinition',
+      entityId: item.id,
+      payload: { code: item.code, metricType: item.metricType },
+    });
+    return new BiMetricEntity(item);
+  }
+
+  async updateMetric(id: string, dto: UpdateBiMetricDto) {
+    await this.ensureMetricExists(id);
+    const item = await this.prisma.biMetricDefinition.update({
+      where: { id },
+      data: {
+        datasetId: dto.datasetId,
+        companyId: dto.companyId,
+        code: dto.code,
+        name: dto.name,
+        description: dto.description,
+        metricType: dto.metricType,
+        expression: dto.expression,
+        valueType: dto.valueType,
+        status: dto.status,
+        updatedById: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'BI_METRIC_UPDATE',
+      entity: 'BiMetricDefinition',
+      entityId: item.id,
+      payload: { status: item.status },
+    });
+    return new BiMetricEntity(item);
+  }
+
+  async recordMetricObservation(id: string, dto: RecordBiMetricObservationDto) {
+    const metric = await this.ensureMetricExists(id);
+    const item = await this.prisma.biMetricObservation.create({
+      data: {
+        tenantId: metric.tenantId,
+        companyId: metric.companyId,
+        branchId: metric.branchId,
+        metricId: id,
+        period: dto.period,
+        observedAt: dto.observedAt ? new Date(dto.observedAt) : new Date(),
+        value: dto.value,
+        dimensions:
+          dto.dimensions === undefined ? Prisma.JsonNull : this.toJson(dto.dimensions),
+        metadata: dto.metadata === undefined ? Prisma.JsonNull : this.toJson(dto.metadata),
+        createdById: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'BI_METRIC_OBSERVATION_RECORD',
+      entity: 'BiMetricObservation',
+      entityId: item.id,
+      payload: { metricId: id, value: dto.value },
+    });
+    return new BiMetricObservationEntity(item);
+  }
+
+  async runDatasetExecution(id: string) {
+    const dataset = await this.ensureDatasetExists(id);
+    const startedAt = new Date();
+    const result = await this.prisma.biMetricDefinition.count({
+      where: { datasetId: id, status: 'ACTIVE' },
+    });
+    const finishedAt = new Date();
+    const item = await this.prisma.biAnalyticsExecution.create({
+      data: {
+        tenantId: dataset.tenantId,
+        companyId: dataset.companyId,
+        branchId: dataset.branchId,
+        datasetId: id,
+        executionType: 'DATASET_REFRESH',
+        status: 'SUCCEEDED',
+        startedAt,
+        finishedAt,
+        durationMs: finishedAt.getTime() - startedAt.getTime(),
+        result: this.toJson({ activeMetrics: result }),
+        createdById: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'BI_ANALYTICS_EXECUTE',
+      entity: 'BiAnalyticsExecution',
+      entityId: item.id,
+      payload: { datasetId: id, status: item.status },
+    });
+    return new BiAnalyticsExecutionEntity(item);
+  }
+
   private async ensureKpiExists(id: string) {
     const item = await this.prisma.biKpiDefinition.findFirst({
       where: this.softDelete.activeWhere({ id }),
     });
     if (!item) throw new NotFoundException('KPI definition not found');
+    return item;
+  }
+
+  private async ensureDatasetExists(id: string) {
+    const item = await this.prisma.biDataset.findFirst({
+      where: this.softDelete.activeWhere({ id }),
+    });
+    if (!item) throw new NotFoundException('BI dataset not found');
+    return item;
+  }
+
+  private async ensureMetricExists(id: string) {
+    const item = await this.prisma.biMetricDefinition.findFirst({
+      where: this.softDelete.activeWhere({ id }),
+    });
+    if (!item) throw new NotFoundException('BI metric not found');
     return item;
   }
 
