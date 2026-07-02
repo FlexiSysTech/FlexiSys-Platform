@@ -5,6 +5,7 @@ import { AiModule } from './ai/ai.module';
 import { AssetsModule } from './assets/assets.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { AuthModule } from './auth/auth.module';
+import { BiModule } from './bi/bi.module';
 import { BusinessRulesModule } from './business-rules/business-rules.module';
 import { DocumentsModule } from './documents/documents.module';
 import { EmployeesModule } from './employees/employees.module';
@@ -37,6 +38,7 @@ import { WorkflowsModule } from './workflows/workflows.module';
     PrismaModule,
     AiModule,
     AccountingModule,
+    BiModule,
     AuthModule,
     UsersModule,
     PermissionsModule,

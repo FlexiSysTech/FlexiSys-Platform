@@ -159,6 +159,12 @@ export const Permission = {
   SEARCH_DOCUMENTS: 'search.documents',
   SEARCH_WORKFLOWS: 'search.workflows',
   SEARCH_ADMIN: 'search.admin',
+
+  BI_READ: 'bi.read',
+  BI_MANAGE: 'bi.manage',
+  BI_EXECUTE: 'bi.execute',
+  BI_DASHBOARD: 'bi.dashboard',
+  BI_PREDICT: 'bi.predict',
 } as const;
 
 export type PermissionCode = (typeof Permission)[keyof typeof Permission];

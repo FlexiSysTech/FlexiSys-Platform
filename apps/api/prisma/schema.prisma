@@ -699,6 +699,27 @@ enum SearchScope {
   WORKFLOW
 }
 
+enum BiKpiValueType {
+  NUMBER
+  CURRENCY
+  PERCENTAGE
+  RATIO
+}
+
+enum BiKpiStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum BiAggregationPeriod {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
 enum RecruitmentStatus {
   ACTIVE
   INACTIVE
@@ -1031,6 +1052,8 @@ model Company {
   mobileSyncChanges          MobileSyncChange[]
   searchIndexes              SearchIndex[]
   searchQueryLogs            SearchQueryLog[]
+  biKpiDefinitions           BiKpiDefinition[]
+  biKpiSnapshots             BiKpiSnapshot[]
 
   @@index([status])
   @@index([tenantId])
@@ -1089,6 +1112,8 @@ model Tenant {
   mobileSyncChanges              MobileSyncChange[]
   searchIndexes                  SearchIndex[]
   searchQueryLogs                SearchQueryLog[]
+  biKpiDefinitions               BiKpiDefinition[]
+  biKpiSnapshots                 BiKpiSnapshot[]
 
   @@index([code])
   @@index([status])
@@ -2163,6 +2188,78 @@ model SearchQueryLog {
   @@index([createdAt])
 }
 
+model BiKpiDefinition {
+  id            String         @id @default(cuid())
+  tenantId      String?
+  companyId     String?
+  branchId      String?
+  code          String
+  name          String
+  description   String?
+  category      String
+  valueType     BiKpiValueType @default(NUMBER)
+  formula       String?
+  targetValue   Decimal?       @db.Decimal(18, 4)
+  warningValue  Decimal?       @db.Decimal(18, 4)
+  criticalValue Decimal?       @db.Decimal(18, 4)
+  unit          String?
+  status        BiKpiStatus    @default(ACTIVE)
+  metadata      Json?
+  deletedAt     DateTime?
+  deletedById   String?
+  createdById   String?
+  updatedById   String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  tenant    Tenant?         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company   Company?        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch    Branch?         @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  snapshots BiKpiSnapshot[]
+
+  @@unique([tenantId, companyId, code])
+  @@index([tenantId])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([category])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model BiKpiSnapshot {
+  id           String              @id @default(cuid())
+  tenantId     String?
+  companyId    String?
+  branchId     String?
+  kpiId        String
+  period       BiAggregationPeriod @default(MONTHLY)
+  periodStart  DateTime
+  periodEnd    DateTime
+  value        Decimal             @db.Decimal(18, 4)
+  targetValue  Decimal?            @db.Decimal(18, 4)
+  variance     Decimal?            @db.Decimal(18, 4)
+  source       String?
+  calculatedAt DateTime            @default(now())
+  metadata     Json?
+  createdById  String?
+  createdAt    DateTime            @default(now())
+
+  tenant  Tenant?         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company Company?        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch  Branch?         @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  kpi     BiKpiDefinition @relation(fields: [kpiId], references: [id], onDelete: Cascade)
+
+  @@unique([kpiId, period, periodStart, companyId, branchId])
+  @@index([tenantId])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([kpiId])
+  @@index([period])
+  @@index([periodStart])
+  @@index([periodEnd])
+  @@index([calculatedAt])
+}
+
 model Account {
   id          String        @id @default(cuid())
   companyId   String
@@ -2366,6 +2463,8 @@ model Branch {
   mobileSyncChanges MobileSyncChange[]
   searchIndexes     SearchIndex[]
   searchQueryLogs   SearchQueryLog[]
+  biKpiDefinitions  BiKpiDefinition[]
+  biKpiSnapshots    BiKpiSnapshot[]
 
   @@unique([companyId, code])
   @@index([tenantId])
