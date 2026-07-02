@@ -13,6 +13,11 @@ import {
   UpdateBiMetricDto,
 } from './dto/bi-analytics.dto';
 import {
+  BiDashboardQueryDto,
+  CreateBiDashboardDto,
+  CreateBiDashboardWidgetDto,
+} from './dto/bi-dashboard.dto';
+import {
   BiKpiQueryDto,
   BiKpiSnapshotQueryDto,
   CreateBiKpiDto,
@@ -139,5 +144,38 @@ export class BiController {
     @Body() dto: RecordBiMetricObservationDto,
   ) {
     return this.service.recordMetricObservation(id, dto);
+  }
+
+  @Get('dashboards')
+  @Permissions(Permission.BI_DASHBOARD)
+  @ApiOperation({ summary: 'List BI dashboards' })
+  findDashboards(@Query() query: BiDashboardQueryDto) {
+    return this.service.findDashboards(query);
+  }
+
+  @Post('dashboards')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.BI_MANAGE)
+  @ApiOperation({ summary: 'Create BI dashboard' })
+  createDashboard(@Body() dto: CreateBiDashboardDto) {
+    return this.service.createDashboard(dto);
+  }
+
+  @Post('dashboards/:id/widgets')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.BI_MANAGE)
+  @ApiOperation({ summary: 'Add BI dashboard widget' })
+  addDashboardWidget(
+    @Param('id') id: string,
+    @Body() dto: CreateBiDashboardWidgetDto,
+  ) {
+    return this.service.addDashboardWidget(id, dto);
+  }
+
+  @Get('dashboards/executive/summary')
+  @Permissions(Permission.BI_DASHBOARD)
+  @ApiOperation({ summary: 'Get executive dashboard summary' })
+  getExecutiveDashboard() {
+    return this.service.getExecutiveDashboard();
   }
 }

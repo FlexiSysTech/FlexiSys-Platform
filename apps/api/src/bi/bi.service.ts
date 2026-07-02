@@ -7,6 +7,11 @@ import { RequestContextService } from '../platform/request-context';
 import { SoftDeleteService } from '../platform/soft-delete';
 import { PrismaService } from '../prisma/prisma.service';
 import {
+  BiDashboardQueryDto,
+  CreateBiDashboardDto,
+  CreateBiDashboardWidgetDto,
+} from './dto/bi-dashboard.dto';
+import {
   BiKpiQueryDto,
   BiKpiSnapshotQueryDto,
   CreateBiKpiDto,
@@ -22,6 +27,11 @@ import {
   UpdateBiDatasetDto,
   UpdateBiMetricDto,
 } from './dto/bi-analytics.dto';
+import {
+  BiDashboardEntity,
+  BiDashboardWidgetEntity,
+  BiExecutiveDashboardEntity,
+} from './entities/bi-dashboard.entity';
 import {
   BiAnalyticsExecutionEntity,
   BiDatasetEntity,
@@ -455,6 +465,116 @@ export class BiService {
     return new BiAnalyticsExecutionEntity(item);
   }
 
+  async findDashboards(query: BiDashboardQueryDto) {
+    const where: Prisma.BiDashboardWhereInput = this.softDelete.activeWhere({
+      ...(this.context.getTenantId() ? { tenantId: this.context.getTenantId() } : {}),
+      ...(this.context.getCompanyId() ? { companyId: this.context.getCompanyId() } : {}),
+      ...(query.audience ? { audience: query.audience } : {}),
+      ...(query.status ? { status: query.status } : {}),
+    });
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.biDashboard.findMany({
+        where,
+        orderBy: { name: 'asc' },
+        ...this.pagination.getSkipTake(query),
+      }),
+      this.prisma.biDashboard.count({ where }),
+    ]);
+    return this.pagination.buildResponse(
+      items.map((item) => new BiDashboardEntity(item)),
+      total,
+      query,
+    );
+  }
+
+  async createDashboard(dto: CreateBiDashboardDto) {
+    const item = await this.prisma.biDashboard.create({
+      data: {
+        tenantId: this.context.getTenantId(),
+        companyId: this.context.getCompanyId(),
+        branchId: this.context.getBranchId(),
+        code: dto.code,
+        name: dto.name,
+        description: dto.description,
+        audience: dto.audience ?? 'EXECUTIVE',
+        status: dto.status ?? 'DRAFT',
+        layout: dto.layout === undefined ? Prisma.JsonNull : this.toJson(dto.layout),
+        createdById: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'BI_DASHBOARD_CREATE',
+      entity: 'BiDashboard',
+      entityId: item.id,
+      payload: { code: item.code, audience: item.audience },
+    });
+    return new BiDashboardEntity(item);
+  }
+
+  async addDashboardWidget(id: string, dto: CreateBiDashboardWidgetDto) {
+    await this.ensureDashboardExists(id);
+    const item = await this.prisma.biDashboardWidget.create({
+      data: {
+        dashboardId: id,
+        code: dto.code,
+        title: dto.title,
+        widgetType: dto.widgetType,
+        dataSource: dto.dataSource,
+        config: dto.config === undefined ? Prisma.JsonNull : this.toJson(dto.config),
+        position: dto.position ?? 0,
+      },
+    });
+    await this.audit.record({
+      action: 'BI_DASHBOARD_WIDGET_CREATE',
+      entity: 'BiDashboardWidget',
+      entityId: item.id,
+      payload: { dashboardId: id, widgetType: item.widgetType },
+    });
+    return new BiDashboardWidgetEntity(item);
+  }
+
+  async getExecutiveDashboard() {
+    const companyId = this.context.getCompanyId();
+    const [activeEmployees, payroll, pendingWorkflows, activeDocuments, kpiCount] =
+      await this.prisma.$transaction([
+        this.prisma.employee.count({
+          where: { ...(companyId ? { companyId } : {}), status: 'ACTIVE' },
+        }),
+        this.prisma.payrollRun.aggregate({
+          where: { ...(companyId ? { companyId } : {}) },
+          _sum: { employerCost: true },
+        }),
+        this.prisma.workflowRequest.count({
+          where: {
+            ...(companyId ? { workflow: { companyId } } : {}),
+            status: 'PENDING',
+          },
+        }),
+        this.prisma.document.count({
+          where: { ...(companyId ? { companyId } : {}), status: 'ACTIVE' },
+        }),
+        this.prisma.biKpiDefinition.count({
+          where: this.softDelete.activeWhere({
+            ...(companyId ? { companyId } : {}),
+            status: 'ACTIVE',
+          }),
+        }),
+      ]);
+    await this.audit.record({
+      action: 'BI_EXECUTIVE_DASHBOARD_VIEW',
+      entity: 'BiDashboard',
+      entityId: 'executive',
+      payload: { companyId },
+    });
+    return new BiExecutiveDashboardEntity({
+      activeEmployees,
+      monthlyPayrollCost: Number(payroll._sum.employerCost?.toString() ?? 0),
+      pendingWorkflows,
+      activeDocuments,
+      kpiCount,
+    });
+  }
+
   private async ensureKpiExists(id: string) {
     const item = await this.prisma.biKpiDefinition.findFirst({
       where: this.softDelete.activeWhere({ id }),
@@ -476,6 +596,14 @@ export class BiService {
       where: this.softDelete.activeWhere({ id }),
     });
     if (!item) throw new NotFoundException('BI metric not found');
+    return item;
+  }
+
+  private async ensureDashboardExists(id: string) {
+    const item = await this.prisma.biDashboard.findFirst({
+      where: this.softDelete.activeWhere({ id }),
+    });
+    if (!item) throw new NotFoundException('BI dashboard not found');
     return item;
   }
 

@@ -742,6 +742,20 @@ enum BiExecutionStatus {
   FAILED
 }
 
+enum BiDashboardStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum BiDashboardWidgetType {
+  KPI
+  CHART
+  TABLE
+  TREND
+  FORECAST
+}
+
 enum RecruitmentStatus {
   ACTIVE
   INACTIVE
@@ -1080,6 +1094,7 @@ model Company {
   biMetricDefinitions        BiMetricDefinition[]
   biMetricObservations       BiMetricObservation[]
   biAnalyticsExecutions      BiAnalyticsExecution[]
+  biDashboards               BiDashboard[]
 
   @@index([status])
   @@index([tenantId])
@@ -1144,6 +1159,7 @@ model Tenant {
   biMetricDefinitions            BiMetricDefinition[]
   biMetricObservations           BiMetricObservation[]
   biAnalyticsExecutions          BiAnalyticsExecution[]
+  biDashboards                   BiDashboard[]
 
   @@index([code])
   @@index([status])
@@ -2421,6 +2437,59 @@ model BiAnalyticsExecution {
   @@index([createdAt])
 }
 
+model BiDashboard {
+  id          String            @id @default(cuid())
+  tenantId    String?
+  companyId   String?
+  branchId    String?
+  code        String
+  name        String
+  description String?
+  audience    String            @default("EXECUTIVE")
+  status      BiDashboardStatus @default(DRAFT)
+  layout      Json?
+  metadata    Json?
+  deletedAt   DateTime?
+  deletedById String?
+  createdById String?
+  updatedById String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  tenant  Tenant?             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company Company?            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch  Branch?             @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  widgets BiDashboardWidget[]
+
+  @@unique([tenantId, companyId, code])
+  @@index([tenantId])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([audience])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model BiDashboardWidget {
+  id          String                @id @default(cuid())
+  dashboardId String
+  code        String
+  title       String
+  widgetType  BiDashboardWidgetType
+  dataSource  String?
+  config      Json?
+  position    Int                   @default(0)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  dashboard BiDashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+
+  @@unique([dashboardId, code])
+  @@index([dashboardId])
+  @@index([widgetType])
+  @@index([position])
+}
+
 model Account {
   id          String        @id @default(cuid())
   companyId   String
@@ -2630,6 +2699,7 @@ model Branch {
   biMetricDefinitions   BiMetricDefinition[]
   biMetricObservations  BiMetricObservation[]
   biAnalyticsExecutions BiAnalyticsExecution[]
+  biDashboards          BiDashboard[]
 
   @@unique([companyId, code])
   @@index([tenantId])
