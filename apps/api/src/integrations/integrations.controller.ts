@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
+import { Public } from '../auth/decorators/public.decorator';
 import { Permission, Permissions } from '../common/decorators/permissions.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import {
@@ -21,6 +22,10 @@ import {
   UpdateIntegrationCredentialDto,
   UpdateIntegrationProviderDto,
 } from './dto/integration-core.dto';
+import {
+  IntegrationInboundQueryDto,
+  ReceiveIntegrationWebhookDto,
+} from './dto/integration-inbound.dto';
 import {
   CreateIntegrationRestConnectorDto,
   CreateIntegrationRetryPolicyDto,
@@ -292,5 +297,23 @@ export class IntegrationsController {
   @ApiOperation({ summary: 'Queue outbound integration job' })
   enqueueOutboundJob(@Body() dto: EnqueueIntegrationOutboundJobDto) {
     return this.service.enqueueOutboundJob(dto);
+  }
+
+  @Public()
+  @Post('inbound/:connectionId/webhook')
+  @ApiOperation({ summary: 'Receive inbound integration webhook' })
+  receiveInboundWebhook(
+    @Param('connectionId') connectionId: string,
+    @Body() dto: ReceiveIntegrationWebhookDto,
+  ) {
+    return this.service.receiveInboundWebhook(connectionId, dto);
+  }
+
+  @Get('inbound-events')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_MONITOR)
+  @ApiOperation({ summary: 'Get inbound integration events' })
+  findInboundEvents(@Query() query: IntegrationInboundQueryDto) {
+    return this.service.findInboundEvents(query);
   }
 }

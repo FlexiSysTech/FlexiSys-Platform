@@ -329,6 +329,15 @@ enum IntegrationOutboundStatus {
   CANCELLED
 }
 
+enum IntegrationInboundStatus {
+  RECEIVED
+  VALIDATED
+  NORMALIZED
+  REJECTED
+  PROCESSED
+  FAILED
+}
+
 enum RecruitmentStatus {
   ACTIVE
   INACTIVE
@@ -642,6 +651,7 @@ model Company {
   integrationRestConnectors IntegrationRestConnector[]
   integrationRetryPolicies  IntegrationRetryPolicy[]
   integrationOutboundJobs   IntegrationOutboundJob[]
+  integrationInboundEvents  IntegrationInboundEvent[]
 
   @@index([status])
 }
@@ -2321,12 +2331,43 @@ model IntegrationConnection {
   credential     IntegrationCredential?     @relation(fields: [credentialId], references: [id], onDelete: SetNull)
   restConnectors IntegrationRestConnector[]
   outboundJobs   IntegrationOutboundJob[]
+  inboundEvents  IntegrationInboundEvent[]
 
   @@index([companyId])
   @@index([providerId])
   @@index([credentialId])
   @@index([status])
   @@index([deletedAt])
+}
+
+model IntegrationInboundEvent {
+  id                String                   @id @default(cuid())
+  companyId         String?
+  connectionId      String?
+  eventType         String
+  source            String?
+  headers           Json?
+  signature         String?
+  signatureValid    Boolean                  @default(false)
+  rawPayload        Json?
+  normalizedPayload Json?
+  status            IntegrationInboundStatus @default(RECEIVED)
+  error             String?
+  receivedAt        DateTime                 @default(now())
+  processedAt       DateTime?
+  createdById       String?
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  company    Company?               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  connection IntegrationConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([connectionId])
+  @@index([eventType])
+  @@index([status])
+  @@index([signatureValid])
+  @@index([receivedAt])
 }
 
 model IntegrationRetryPolicy {

@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import {
   IntegrationConnectionStatus,
   IntegrationHttpMethod,
@@ -29,6 +30,10 @@ import {
   UpdateIntegrationProviderDto,
 } from './dto/integration-core.dto';
 import {
+  IntegrationInboundQueryDto,
+  ReceiveIntegrationWebhookDto,
+} from './dto/integration-inbound.dto';
+import {
   CreateIntegrationRestConnectorDto,
   CreateIntegrationRetryPolicyDto,
   CreateIntegrationWebhookDto,
@@ -44,6 +49,7 @@ import {
   IntegrationLifecycleResultEntity,
   IntegrationProviderEntity,
 } from './entities/integration-core.entity';
+import { IntegrationInboundEventEntity } from './entities/integration-inbound.entity';
 import {
   IntegrationOutboundJobEntity,
   IntegrationRestConnectorEntity,
@@ -1066,6 +1072,86 @@ export class IntegrationsService {
     );
   }
 
+  async receiveInboundWebhook(
+    connectionId: string,
+    dto: ReceiveIntegrationWebhookDto,
+  ) {
+    const connection = await this.ensureConnectionExists(connectionId);
+    const credential = connection.credentialId
+      ? await this.ensureCredentialExists(connection.credentialId)
+      : null;
+    const config = this.asRecord(connection.config);
+    const validation = this.validateInboundSignature(
+      dto.payload,
+      dto.signature,
+      config,
+      credential?.secretRef,
+    );
+    const normalizedPayload = {
+      eventType: dto.eventType,
+      source: dto.source ?? 'webhook',
+      receivedAt: new Date().toISOString(),
+      data: dto.payload,
+    };
+
+    const item = await this.prisma.integrationInboundEvent.create({
+      data: {
+        companyId: connection.companyId,
+        connectionId,
+        eventType: dto.eventType,
+        source: dto.source,
+        headers: this.toJson(dto.headers),
+        signature: dto.signature,
+        signatureValid: validation.valid,
+        rawPayload: this.toJson(dto.payload),
+        normalizedPayload: this.toJson(normalizedPayload),
+        status: validation.valid ? 'NORMALIZED' : 'REJECTED',
+        error: validation.valid ? null : validation.reason,
+        processedAt: validation.valid ? new Date() : null,
+      },
+    });
+
+    await this.audit.record({
+      action: validation.valid
+        ? 'INTEGRATION_INBOUND_EVENT_RECEIVED'
+        : 'INTEGRATION_INBOUND_EVENT_REJECTED',
+      entity: 'IntegrationInboundEvent',
+      entityId: item.id,
+      payload: {
+        eventType: item.eventType,
+        connectionId,
+        signatureValid: item.signatureValid,
+      },
+    });
+
+    return new IntegrationInboundEventEntity(item);
+  }
+
+  async findInboundEvents(query: IntegrationInboundQueryDto) {
+    const companyId = query.companyId ?? this.context.getCompanyId();
+    const where: Prisma.IntegrationInboundEventWhereInput = {
+      ...(companyId ? { companyId } : {}),
+      ...(query.connectionId ? { connectionId: query.connectionId } : {}),
+      ...(query.eventType ? { eventType: query.eventType } : {}),
+      ...(query.inboundStatus ? { status: query.inboundStatus } : {}),
+    };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.integrationInboundEvent.findMany({
+        where,
+        orderBy: { receivedAt: 'desc' },
+        ...this.pagination.getSkipTake(query),
+      }),
+      this.prisma.integrationInboundEvent.count({ where }),
+    ]);
+
+    return this.pagination.buildResponse(
+      items.map((item) => new IntegrationInboundEventEntity(item)),
+      total,
+      query,
+    );
+  }
+
   private assertStatusChange(
     entity: string,
     currentStatus: IntegrationStatus,
@@ -1281,6 +1367,69 @@ export class IntegrationsService {
   private joinUrl(baseUrl: string, path: string): string {
     if (!baseUrl) return path;
     return `${baseUrl.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
+  }
+
+  private validateInboundSignature(
+    payload: Record<string, unknown>,
+    signature: string | undefined,
+    config: Record<string, unknown> | null,
+    credentialSecretRef?: string | null,
+  ): { valid: boolean; reason?: string } {
+    if (config?.allowUnsignedInbound === true) {
+      return { valid: true };
+    }
+
+    const secret = this.resolveInboundSecret(config, credentialSecretRef);
+    if (!secret) {
+      return { valid: false, reason: 'Inbound signature secret is not configured' };
+    }
+    if (!signature) {
+      return { valid: false, reason: 'Inbound signature is required' };
+    }
+
+    const expected = createHmac('sha256', secret)
+      .update(this.stableStringify(payload))
+      .digest('hex');
+    const normalizedSignature = signature.startsWith('sha256=')
+      ? signature.slice('sha256='.length)
+      : signature;
+
+    const expectedBuffer = Buffer.from(expected, 'hex');
+    const actualBuffer = Buffer.from(normalizedSignature, 'hex');
+    if (expectedBuffer.length !== actualBuffer.length) {
+      return { valid: false, reason: 'Inbound signature is invalid' };
+    }
+
+    const valid = timingSafeEqual(expectedBuffer, actualBuffer);
+    return {
+      valid,
+      reason: valid ? undefined : 'Inbound signature is invalid',
+    };
+  }
+
+  private resolveInboundSecret(
+    config: Record<string, unknown> | null,
+    credentialSecretRef?: string | null,
+  ): string | undefined {
+    const secretEnv =
+      typeof config?.signatureSecretEnv === 'string'
+        ? config.signatureSecretEnv
+        : credentialSecretRef;
+    return secretEnv ? process.env[secretEnv] : undefined;
+  }
+
+  private stableStringify(value: unknown): string {
+    if (Array.isArray(value)) {
+      return `[${value.map((item) => this.stableStringify(item)).join(',')}]`;
+    }
+    if (value && typeof value === 'object') {
+      const record = value as Record<string, unknown>;
+      return `{${Object.keys(record)
+        .sort()
+        .map((key) => `${JSON.stringify(key)}:${this.stableStringify(record[key])}`)
+        .join(',')}}`;
+    }
+    return JSON.stringify(value);
   }
 
   private assertSameCompany(
