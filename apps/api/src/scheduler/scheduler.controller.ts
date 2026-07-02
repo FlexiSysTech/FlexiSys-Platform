@@ -19,6 +19,7 @@ import {
   UpdateCronRegistryDto,
   UpdateScheduledJobDto,
 } from './dto/scheduler-core.dto';
+import { SchedulerMonitoringQueryDto } from './dto/scheduler-monitoring.dto';
 import {
   ClaimSchedulerJobsDto,
   CompleteSchedulerJobDto,
@@ -155,5 +156,37 @@ export class SchedulerController {
   @ApiOperation({ summary: 'Get scheduler failure recovery records' })
   findRecoveries(@Query() query: SchedulerRecoveryQueryDto) {
     return this.service.findRecoveries(query);
+  }
+
+  @Get('monitoring/dashboard')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.SCHEDULER_MONITOR)
+  @ApiOperation({ summary: 'Get scheduler dashboard metrics' })
+  getDashboard(@Query() query: SchedulerMonitoringQueryDto) {
+    return this.service.getDashboard(query);
+  }
+
+  @Get('monitoring/queues')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.SCHEDULER_MONITOR)
+  @ApiOperation({ summary: 'Get scheduler queue status' })
+  getQueueStatus(@Query() query: SchedulerMonitoringQueryDto) {
+    return this.service.getQueueStatus(query);
+  }
+
+  @Get('monitoring/failures')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.SCHEDULER_MONITOR)
+  @ApiOperation({ summary: 'Get scheduler failure report' })
+  getFailureReport(@Query() query: SchedulerMonitoringQueryDto) {
+    return this.service.getFailureReport(query);
+  }
+
+  @Get('monitoring/system-status')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.SCHEDULER_MONITOR)
+  @ApiOperation({ summary: 'Get scheduler system status' })
+  getSystemStatus(@Query() query: SchedulerMonitoringQueryDto) {
+    return this.service.getSystemStatus(query);
   }
 }

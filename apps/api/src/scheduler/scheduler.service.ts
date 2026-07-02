@@ -26,6 +26,7 @@ import {
   UpdateCronRegistryDto,
   UpdateScheduledJobDto,
 } from './dto/scheduler-core.dto';
+import { SchedulerMonitoringQueryDto } from './dto/scheduler-monitoring.dto';
 import {
   ClaimSchedulerJobsDto,
   CompleteSchedulerJobDto,
@@ -38,6 +39,12 @@ import {
   SchedulerJobHistoryEntity,
   SchedulerScheduledJobEntity,
 } from './entities/scheduler-core.entity';
+import {
+  SchedulerDashboardEntity,
+  SchedulerFailureReportEntity,
+  SchedulerQueueStatusEntity,
+  SchedulerSystemStatusEntity,
+} from './entities/scheduler-monitoring.entity';
 import {
   SchedulerFailureRecoveryEntity,
   SchedulerQueueClaimEntity,
@@ -600,6 +607,227 @@ export class SchedulerService {
     );
   }
 
+  async getDashboard(query: SchedulerMonitoringQueryDto) {
+    const tenantId = query.tenantId ?? this.context.getTenantId();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const jobWhere = this.schedulerJobWhere(query, tenantId);
+    const now = new Date();
+    const [
+      activeCrons,
+      pausedCrons,
+      pendingJobs,
+      runningJobs,
+      retryScheduledJobs,
+      deadLetterJobs,
+      dueJobs,
+      completedToday,
+      failedToday,
+      openRecoveries,
+    ] = await this.prisma.$transaction([
+      this.prisma.schedulerCronRegistry.count({
+        where: this.softDelete.activeWhere({
+          ...(tenantId ? { tenantId } : {}),
+          status: 'ACTIVE',
+        }),
+      }),
+      this.prisma.schedulerCronRegistry.count({
+        where: this.softDelete.activeWhere({
+          ...(tenantId ? { tenantId } : {}),
+          status: 'PAUSED',
+        }),
+      }),
+      this.prisma.schedulerScheduledJob.count({
+        where: { ...jobWhere, status: 'PENDING' },
+      }),
+      this.prisma.schedulerScheduledJob.count({
+        where: { ...jobWhere, status: 'RUNNING' },
+      }),
+      this.prisma.schedulerScheduledJob.count({
+        where: { ...jobWhere, status: 'RETRY_SCHEDULED' },
+      }),
+      this.prisma.schedulerScheduledJob.count({
+        where: { ...jobWhere, status: 'DEAD_LETTER' },
+      }),
+      this.prisma.schedulerScheduledJob.count({
+        where: {
+          ...jobWhere,
+          status: { in: ['PENDING', 'QUEUED', 'RETRY_SCHEDULED'] },
+          runAt: { lte: now },
+          OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
+        },
+      }),
+      this.prisma.schedulerJobHistory.count({
+        where: {
+          ...(tenantId ? { tenantId } : {}),
+          status: 'SUCCEEDED',
+          createdAt: { gte: today },
+        },
+      }),
+      this.prisma.schedulerJobHistory.count({
+        where: {
+          ...(tenantId ? { tenantId } : {}),
+          status: { in: ['FAILED', 'DEAD_LETTER'] },
+          createdAt: { gte: today },
+        },
+      }),
+      this.prisma.schedulerFailureRecovery.count({
+        where: {
+          ...(tenantId ? { tenantId } : {}),
+          status: 'PENDING',
+        },
+      }),
+    ]);
+
+    return new SchedulerDashboardEntity({
+      activeCrons,
+      pausedCrons,
+      pendingJobs,
+      runningJobs,
+      retryScheduledJobs,
+      deadLetterJobs,
+      dueJobs,
+      completedToday,
+      failedToday,
+      openRecoveries,
+    });
+  }
+
+  async getQueueStatus(query: SchedulerMonitoringQueryDto) {
+    const tenantId = query.tenantId ?? this.context.getTenantId();
+    const now = new Date();
+    const jobWhere = this.schedulerJobWhere(query, tenantId);
+    const [statusGroups, dueGroups] = await this.prisma.$transaction([
+      this.prisma.schedulerScheduledJob.groupBy({
+        by: ['queueName', 'status'],
+        where: jobWhere,
+        _count: { _all: true },
+        orderBy: { queueName: 'asc' },
+      }),
+      this.prisma.schedulerScheduledJob.groupBy({
+        by: ['queueName'],
+        where: {
+          ...jobWhere,
+          status: { in: ['PENDING', 'QUEUED', 'RETRY_SCHEDULED'] },
+          runAt: { lte: now },
+          OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
+        },
+        _count: { _all: true },
+        orderBy: { queueName: 'asc' },
+      }),
+    ]);
+
+    const queues = new Map<string, SchedulerQueueStatusEntity>();
+    for (const group of statusGroups) {
+      const count = this.groupCount(group);
+      const current =
+        queues.get(group.queueName) ??
+        new SchedulerQueueStatusEntity({
+          queueName: group.queueName,
+          pending: 0,
+          running: 0,
+          retryScheduled: 0,
+          deadLetter: 0,
+          due: 0,
+        });
+      if (group.status === 'PENDING' || group.status === 'QUEUED') {
+        current.pending += count;
+      }
+      if (group.status === 'RUNNING') current.running += count;
+      if (group.status === 'RETRY_SCHEDULED') {
+        current.retryScheduled += count;
+      }
+      if (group.status === 'DEAD_LETTER') current.deadLetter += count;
+      queues.set(group.queueName, current);
+    }
+
+    for (const group of dueGroups) {
+      const count = this.groupCount(group);
+      const current =
+        queues.get(group.queueName) ??
+        new SchedulerQueueStatusEntity({
+          queueName: group.queueName,
+          pending: 0,
+          running: 0,
+          retryScheduled: 0,
+          deadLetter: 0,
+          due: 0,
+        });
+      current.due = count;
+      queues.set(group.queueName, current);
+    }
+
+    return Array.from(queues.values());
+  }
+
+  async getFailureReport(query: SchedulerMonitoringQueryDto) {
+    const tenantId = query.tenantId ?? this.context.getTenantId();
+    const dateRange = this.createdAtRange(query);
+    const [failedJobs, deadLetterJobs, openRecoveries, recentFailures] =
+      await this.prisma.$transaction([
+        this.prisma.schedulerScheduledJob.count({
+          where: {
+            ...this.schedulerJobWhere(query, tenantId),
+            status: 'FAILED',
+          },
+        }),
+        this.prisma.schedulerScheduledJob.count({
+          where: {
+            ...this.schedulerJobWhere(query, tenantId),
+            status: 'DEAD_LETTER',
+          },
+        }),
+        this.prisma.schedulerFailureRecovery.count({
+          where: {
+            ...(tenantId ? { tenantId } : {}),
+            status: 'PENDING',
+            ...(dateRange ? { createdAt: dateRange } : {}),
+          },
+        }),
+        this.prisma.schedulerJobHistory.findMany({
+          where: {
+            ...(tenantId ? { tenantId } : {}),
+            ...(query.queueName ? { queueName: query.queueName } : {}),
+            status: { in: ['FAILED', 'DEAD_LETTER'] },
+            ...(dateRange ? { createdAt: dateRange } : {}),
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+          select: {
+            id: true,
+            jobId: true,
+            runId: true,
+            taskName: true,
+            queueName: true,
+            status: true,
+            attempt: true,
+            error: true,
+            createdAt: true,
+          },
+        }),
+      ]);
+
+    return new SchedulerFailureReportEntity({
+      failedJobs,
+      deadLetterJobs,
+      openRecoveries,
+      recentFailures,
+    });
+  }
+
+  async getSystemStatus(query: SchedulerMonitoringQueryDto) {
+    const dashboard = await this.getDashboard(query);
+    const healthy = dashboard.deadLetterJobs === 0 && dashboard.failedToday < 10;
+    return new SchedulerSystemStatusEntity({
+      healthy,
+      status: healthy ? 'HEALTHY' : 'DEGRADED',
+      monitoredAt: new Date(),
+      dueJobs: dashboard.dueJobs,
+      runningJobs: dashboard.runningJobs,
+      deadLetterJobs: dashboard.deadLetterJobs,
+    });
+  }
+
   private async applyRecoveryAction(id: string, action: SchedulerRecoveryAction) {
     if (action === 'RETRY') {
       await this.retryJob(id);
@@ -702,6 +930,31 @@ export class SchedulerService {
     const multiplier =
       job.retryStrategy === 'EXPONENTIAL' ? Math.max(1, 2 ** Math.max(0, job.attempts - 1)) : 1;
     return new Date(Date.now() + job.retryDelaySeconds * multiplier * 1000);
+  }
+
+  private schedulerJobWhere(
+    query: Pick<SchedulerMonitoringQueryDto, 'queueName' | 'taskName'>,
+    tenantId?: string | null,
+  ): Prisma.SchedulerScheduledJobWhereInput {
+    return this.softDelete.activeWhere({
+      ...(tenantId ? { tenantId } : {}),
+      ...(query.queueName ? { queueName: query.queueName } : {}),
+      ...(query.taskName ? { taskName: query.taskName } : {}),
+    });
+  }
+
+  private createdAtRange(
+    query: Pick<SchedulerMonitoringQueryDto, 'from' | 'to'>,
+  ): Prisma.DateTimeFilter | undefined {
+    if (!query.from && !query.to) return undefined;
+    return {
+      ...(query.from ? { gte: new Date(query.from) } : {}),
+      ...(query.to ? { lte: new Date(query.to) } : {}),
+    };
+  }
+
+  private groupCount(group: { _count?: true | { _all?: number } }): number {
+    return typeof group._count === 'object' ? group._count._all ?? 0 : 0;
   }
 
   private validateCronExpression(expression: string) {
