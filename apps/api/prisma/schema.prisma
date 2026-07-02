@@ -459,6 +459,12 @@ enum TenantPlan {
   CUSTOM
 }
 
+enum TenantConfigurationStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
 enum RecruitmentStatus {
   ACTIVE
   INACTIVE
@@ -805,6 +811,10 @@ model Tenant {
   companies Company[]
   branches  Branch[]
   domains   TenantDomain[]
+  settings  TenantSetting[]
+  flags     TenantFeatureFlag[]
+  locales   TenantLocalization[]
+  branding  TenantBranding?
 
   @@index([code])
   @@index([status])
@@ -831,6 +841,104 @@ model TenantDomain {
   @@index([tenantId])
   @@index([domain])
   @@index([isPrimary])
+  @@index([deletedAt])
+}
+
+model TenantSetting {
+  id          String                    @id @default(cuid())
+  tenantId    String
+  key         String
+  value       Json?
+  isSecret    Boolean                   @default(false)
+  secretRef   String?
+  status      TenantConfigurationStatus @default(ACTIVE)
+  deletedAt   DateTime?
+  deletedById String?
+  createdById String?
+  updatedById String?
+  createdAt   DateTime                  @default(now())
+  updatedAt   DateTime                  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key])
+  @@index([tenantId])
+  @@index([key])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model TenantFeatureFlag {
+  id          String                    @id @default(cuid())
+  tenantId    String
+  key         String
+  enabled     Boolean                   @default(false)
+  config      Json?
+  status      TenantConfigurationStatus @default(ACTIVE)
+  deletedAt   DateTime?
+  deletedById String?
+  createdById String?
+  updatedById String?
+  createdAt   DateTime                  @default(now())
+  updatedAt   DateTime                  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key])
+  @@index([tenantId])
+  @@index([key])
+  @@index([enabled])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model TenantLocalization {
+  id          String                    @id @default(cuid())
+  tenantId    String
+  locale      String
+  timezone    String?
+  dateFormat  String?
+  timeFormat  String?
+  currency    String?
+  status      TenantConfigurationStatus @default(ACTIVE)
+  deletedAt   DateTime?
+  deletedById String?
+  createdById String?
+  updatedById String?
+  createdAt   DateTime                  @default(now())
+  updatedAt   DateTime                  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, locale])
+  @@index([tenantId])
+  @@index([locale])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model TenantBranding {
+  id             String                    @id @default(cuid())
+  tenantId       String                    @unique
+  brandName      String?
+  logoUrl        String?
+  faviconUrl     String?
+  primaryColor   String?
+  secondaryColor String?
+  accentColor    String?
+  metadata       Json?
+  status         TenantConfigurationStatus @default(ACTIVE)
+  deletedAt      DateTime?
+  deletedById    String?
+  createdById    String?
+  updatedById    String?
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([status])
   @@index([deletedAt])
 }
 
