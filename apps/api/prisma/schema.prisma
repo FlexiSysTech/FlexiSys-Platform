@@ -756,6 +756,25 @@ enum BiDashboardWidgetType {
   FORECAST
 }
 
+enum BiPredictionModelType {
+  LINEAR_TREND
+  MOVING_AVERAGE
+  SEASONAL_BASELINE
+  CUSTOM
+}
+
+enum BiPredictionStatus {
+  DRAFT
+  ACTIVE
+  RETIRED
+}
+
+enum BiPredictionRunStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
 enum RecruitmentStatus {
   ACTIVE
   INACTIVE
@@ -1095,6 +1114,8 @@ model Company {
   biMetricObservations       BiMetricObservation[]
   biAnalyticsExecutions      BiAnalyticsExecution[]
   biDashboards               BiDashboard[]
+  biPredictionModels         BiPredictionModel[]
+  biPredictionRuns           BiPredictionRun[]
 
   @@index([status])
   @@index([tenantId])
@@ -1160,6 +1181,8 @@ model Tenant {
   biMetricObservations           BiMetricObservation[]
   biAnalyticsExecutions          BiAnalyticsExecution[]
   biDashboards                   BiDashboard[]
+  biPredictionModels             BiPredictionModel[]
+  biPredictionRuns               BiPredictionRun[]
 
   @@index([code])
   @@index([status])
@@ -2490,6 +2513,78 @@ model BiDashboardWidget {
   @@index([position])
 }
 
+model BiPredictionModel {
+  id          String                @id @default(cuid())
+  tenantId    String?
+  companyId   String?
+  branchId    String?
+  code        String
+  name        String
+  description String?
+  modelType   BiPredictionModelType @default(LINEAR_TREND)
+  targetType  String
+  targetId    String?
+  horizonDays Int                   @default(30)
+  confidence  Decimal?              @db.Decimal(8, 4)
+  status      BiPredictionStatus    @default(DRAFT)
+  config      Json?
+  deletedAt   DateTime?
+  deletedById String?
+  createdById String?
+  updatedById String?
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  tenant Tenant?           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company Company?         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch Branch?           @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  runs   BiPredictionRun[]
+
+  @@unique([tenantId, companyId, code])
+  @@index([tenantId])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([modelType])
+  @@index([targetType])
+  @@index([targetId])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model BiPredictionRun {
+  id              String                @id @default(cuid())
+  tenantId        String?
+  companyId       String?
+  branchId        String?
+  modelId         String
+  status          BiPredictionRunStatus @default(PENDING)
+  inputWindowStart DateTime?
+  inputWindowEnd   DateTime?
+  forecastStart    DateTime
+  forecastEnd      DateTime
+  predictedValue   Decimal?             @db.Decimal(18, 4)
+  confidence       Decimal?             @db.Decimal(8, 4)
+  result           Json?
+  error            String?
+  executedAt       DateTime             @default(now())
+  createdById      String?
+  createdAt        DateTime             @default(now())
+
+  tenant  Tenant?           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company Company?          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch  Branch?           @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  model   BiPredictionModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([modelId])
+  @@index([status])
+  @@index([forecastStart])
+  @@index([forecastEnd])
+  @@index([executedAt])
+}
+
 model Account {
   id          String        @id @default(cuid())
   companyId   String
@@ -2700,6 +2795,8 @@ model Branch {
   biMetricObservations  BiMetricObservation[]
   biAnalyticsExecutions BiAnalyticsExecution[]
   biDashboards          BiDashboard[]
+  biPredictionModels    BiPredictionModel[]
+  biPredictionRuns      BiPredictionRun[]
 
   @@unique([companyId, code])
   @@index([tenantId])

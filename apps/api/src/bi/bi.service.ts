@@ -11,6 +11,10 @@ import {
   CreateBiDashboardDto,
   CreateBiDashboardWidgetDto,
 } from './dto/bi-dashboard.dto';
+import {
+  BiPredictionModelQueryDto,
+  CreateBiPredictionModelDto,
+} from './dto/bi-prediction.dto';
 import { BiTrendQueryDto } from './dto/bi-trend.dto';
 import {
   BiKpiQueryDto,
@@ -41,6 +45,10 @@ import {
   BiMetricObservationEntity,
 } from './entities/bi-analytics.entity';
 import { BiKpiEntity, BiKpiSnapshotEntity } from './entities/bi-kpi.entity';
+import {
+  BiPredictionModelEntity,
+  BiPredictionRunEntity,
+} from './entities/bi-prediction.entity';
 
 @Injectable()
 export class BiService {
