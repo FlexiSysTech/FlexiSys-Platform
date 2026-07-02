@@ -124,6 +124,13 @@ export const Permission = {
   TENANTS_DELETE: 'tenants.delete',
   TENANTS_PROVISION: 'tenants.provision',
   TENANTS_SECURITY: 'tenants.security',
+
+  PUBLIC_API_READ: 'public-api.read',
+  PUBLIC_API_CREATE: 'public-api.create',
+  PUBLIC_API_UPDATE: 'public-api.update',
+  PUBLIC_API_DELETE: 'public-api.delete',
+  PUBLIC_API_KEYS: 'public-api.keys',
+  PUBLIC_API_ADMIN: 'public-api.admin',
 } as const;
 
 export type PermissionCode = (typeof Permission)[keyof typeof Permission];

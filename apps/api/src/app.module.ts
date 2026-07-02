@@ -19,6 +19,7 @@ import { PlatformModule } from './platform/platform.module';
 import { PluginsModule } from './plugins/plugins.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { PrismaModule } from './prisma';
+import { PublicApiModule } from './public-api/public-api.module';
 import { RecruitmentModule } from './recruitment/recruitment.module';
 import { ReportingModule } from './reporting/reporting.module';
 import { RolesModule } from './roles/roles.module';
@@ -47,6 +48,7 @@ import { WorkflowsModule } from './workflows/workflows.module';
     IntegrationsModule,
     PluginsModule,
     TenantsModule,
+    PublicApiModule,
     PerformanceModule,
     AssetsModule,
     DocumentsModule,

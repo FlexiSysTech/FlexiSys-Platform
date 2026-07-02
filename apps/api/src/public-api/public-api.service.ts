@@ -1,0 +1,455 @@
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Prisma, PublicApiLifecycle, PublicApiStatus } from '@prisma/client';
+
+import { AuditService } from '../platform/audit';
+import { PaginationService } from '../platform/pagination';
+import { RequestContextService } from '../platform/request-context';
+import { SoftDeleteService } from '../platform/soft-delete';
+import { StatusTransitionService } from '../platform/status-transitions';
+import { PrismaService } from '../prisma/prisma.service';
+import {
+  CreatePublicApiDto,
+  CreatePublicApiGroupDto,
+  CreatePublicApiVersionDto,
+  PublicApiRegistryQueryDto,
+  UpdatePublicApiDto,
+  UpdatePublicApiGroupDto,
+  UpdatePublicApiVersionDto,
+} from './dto/public-api-registry.dto';
+import {
+  PublicApiEntity,
+  PublicApiGroupEntity,
+  PublicApiVersionEntity,
+} from './entities/public-api-registry.entity';
+
+@Injectable()
+export class PublicApiService {
+  private readonly statusRules = [
+    {
+      from: 'DRAFT' as PublicApiStatus,
+      to: ['ACTIVE', 'ARCHIVED'] as PublicApiStatus[],
+    },
+    {
+      from: 'ACTIVE' as PublicApiStatus,
+      to: ['DEPRECATED', 'RETIRED', 'ARCHIVED'] as PublicApiStatus[],
+    },
+    {
+      from: 'DEPRECATED' as PublicApiStatus,
+      to: ['ACTIVE', 'RETIRED', 'ARCHIVED'] as PublicApiStatus[],
+    },
+    {
+      from: 'RETIRED' as PublicApiStatus,
+      to: ['ARCHIVED'] as PublicApiStatus[],
+    },
+  ];
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly context: RequestContextService,
+    private readonly pagination: PaginationService,
+    private readonly audit: AuditService,
+    private readonly softDelete: SoftDeleteService,
+    private readonly transitions: StatusTransitionService,
+  ) {}
+
+  async findGroups(query: PublicApiRegistryQueryDto) {
+    const tenantId = query.tenantId ?? this.context.getTenantId();
+    const normalized = this.pagination.normalize(query);
+    const where: Prisma.PublicApiGroupWhereInput = this.softDelete.activeWhere({
+      ...(tenantId ? { tenantId } : {}),
+      ...(query.status ? { status: query.status } : {}),
+      ...(normalized.search
+        ? {
+            OR: [
+              { code: { contains: normalized.search, mode: 'insensitive' } },
+              { name: { contains: normalized.search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    });
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.publicApiGroup.findMany({
+        where,
+        orderBy: { code: 'asc' },
+        ...this.pagination.getSkipTake(query),
+      }),
+      this.prisma.publicApiGroup.count({ where }),
+    ]);
+    return this.pagination.buildResponse(
+      items.map((item) => new PublicApiGroupEntity(item)),
+      total,
+      query,
+    );
+  }
+
+  async createGroup(dto: CreatePublicApiGroupDto) {
+    const tenantId = await this.resolveTenantId(dto.tenantId);
+    await this.ensureGroupUnique(tenantId, dto.code);
+    const status = dto.status ?? 'DRAFT';
+    this.assertStatus('DRAFT', status);
+    const item = await this.prisma.publicApiGroup.create({
+      data: {
+        tenantId,
+        code: dto.code,
+        name: dto.name,
+        description: dto.description,
+        status,
+        metadata: this.toJson(dto.metadata),
+        createdById: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'PUBLIC_API_GROUP_CREATE',
+      entity: 'PublicApiGroup',
+      entityId: item.id,
+      payload: { tenantId, code: item.code },
+    });
+    return new PublicApiGroupEntity(item);
+  }
+
+  async updateGroup(id: string, dto: UpdatePublicApiGroupDto) {
+    const current = await this.ensureGroupExists(id);
+    const tenantId =
+      dto.tenantId === undefined ? current.tenantId : await this.resolveTenantId(dto.tenantId);
+    const code = dto.code ?? current.code;
+    if (dto.tenantId !== undefined || dto.code) {
+      await this.ensureGroupUnique(tenantId, code, id);
+    }
+    if (dto.status && dto.status !== current.status) {
+      this.assertStatus(current.status, dto.status);
+    }
+    const item = await this.prisma.publicApiGroup.update({
+      where: { id },
+      data: {
+        tenantId,
+        code: dto.code,
+        name: dto.name,
+        description: dto.description,
+        status: dto.status,
+        metadata: dto.metadata === undefined ? undefined : this.toJson(dto.metadata),
+        updatedById: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'PUBLIC_API_GROUP_UPDATE',
+      entity: 'PublicApiGroup',
+      entityId: item.id,
+      payload: { before: current, after: item } as Prisma.InputJsonObject,
+    });
+    return new PublicApiGroupEntity(item);
+  }
+
+  async removeGroup(id: string) {
+    const result = await this.softDelete.softDelete(
+      this.prisma.publicApiGroup as never,
+      id,
+    );
+    await this.audit.record({
+      action: 'PUBLIC_API_GROUP_DELETE',
+      entity: 'PublicApiGroup',
+      entityId: id,
+      payload: { deleted: true },
+    });
+    return { success: true, deletedGroup: new PublicApiGroupEntity(result.record) };
+  }
+
+  async findApis(query: PublicApiRegistryQueryDto) {
+    const tenantId = query.tenantId ?? this.context.getTenantId();
+    const normalized = this.pagination.normalize(query);
+    const where: Prisma.PublicApiRegistryWhereInput = this.softDelete.activeWhere({
+      ...(tenantId ? { tenantId } : {}),
+      ...(query.groupId ? { groupId: query.groupId } : {}),
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.lifecycle ? { lifecycle: query.lifecycle } : {}),
+      ...(normalized.search
+        ? {
+            OR: [
+              { code: { contains: normalized.search, mode: 'insensitive' } },
+              { name: { contains: normalized.search, mode: 'insensitive' } },
+              { basePath: { contains: normalized.search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    });
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.publicApiRegistry.findMany({
+        where,
+        orderBy: [{ code: 'asc' }],
+        ...this.pagination.getSkipTake(query),
+      }),
+      this.prisma.publicApiRegistry.count({ where }),
+    ]);
+    return this.pagination.buildResponse(
+      items.map((item) => new PublicApiEntity(item)),
+      total,
+      query,
+    );
+  }
+
+  async createApi(dto: CreatePublicApiDto) {
+    const tenantId = await this.resolveTenantId(dto.tenantId);
+    if (dto.groupId) await this.ensureGroupExists(dto.groupId, tenantId);
+    await this.ensureApiUnique(tenantId, dto.code);
+    const status = dto.status ?? 'DRAFT';
+    this.assertStatus('DRAFT', status);
+    const item = await this.prisma.publicApiRegistry.create({
+      data: {
+        tenantId,
+        groupId: dto.groupId,
+        code: dto.code,
+        name: dto.name,
+        description: dto.description,
+        basePath: dto.basePath,
+        status,
+        lifecycle: dto.lifecycle ?? this.lifecycleForStatus(status),
+        metadata: this.toJson(dto.metadata),
+        createdById: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'PUBLIC_API_CREATE',
+      entity: 'PublicApiRegistry',
+      entityId: item.id,
+      payload: { tenantId, code: item.code, basePath: item.basePath },
+    });
+    return new PublicApiEntity(item);
+  }
+
+  async updateApi(id: string, dto: UpdatePublicApiDto) {
+    const current = await this.ensureApiExists(id);
+    const tenantId =
+      dto.tenantId === undefined ? current.tenantId : await this.resolveTenantId(dto.tenantId);
+    const code = dto.code ?? current.code;
+    if (dto.groupId) await this.ensureGroupExists(dto.groupId, tenantId);
+    if (dto.tenantId !== undefined || dto.code) {
+      await this.ensureApiUnique(tenantId, code, id);
+    }
+    if (dto.status && dto.status !== current.status) {
+      this.assertStatus(current.status, dto.status);
+    }
+    const item = await this.prisma.publicApiRegistry.update({
+      where: { id },
+      data: {
+        tenantId,
+        groupId: dto.groupId,
+        code: dto.code,
+        name: dto.name,
+        description: dto.description,
+        basePath: dto.basePath,
+        status: dto.status,
+        lifecycle: dto.lifecycle ?? (dto.status ? this.lifecycleForStatus(dto.status) : undefined),
+        metadata: dto.metadata === undefined ? undefined : this.toJson(dto.metadata),
+        updatedById: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'PUBLIC_API_UPDATE',
+      entity: 'PublicApiRegistry',
+      entityId: item.id,
+      payload: { before: current, after: item } as Prisma.InputJsonObject,
+    });
+    return new PublicApiEntity(item);
+  }
+
+  async removeApi(id: string) {
+    const result = await this.softDelete.softDelete(
+      this.prisma.publicApiRegistry as never,
+      id,
+    );
+    await this.audit.record({
+      action: 'PUBLIC_API_DELETE',
+      entity: 'PublicApiRegistry',
+      entityId: id,
+      payload: { deleted: true },
+    });
+    return { success: true, deletedApi: new PublicApiEntity(result.record) };
+  }
+
+  async findVersions(query: PublicApiRegistryQueryDto) {
+    const tenantId = query.tenantId ?? this.context.getTenantId();
+    const where: Prisma.PublicApiVersionWhereInput = this.softDelete.activeWhere({
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.lifecycle ? { lifecycle: query.lifecycle } : {}),
+      ...(query.groupId || tenantId
+        ? {
+            api: {
+              ...(query.groupId ? { groupId: query.groupId } : {}),
+              ...(tenantId ? { tenantId } : {}),
+            },
+          }
+        : {}),
+    });
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.publicApiVersion.findMany({
+        where,
+        orderBy: [{ apiId: 'asc' }, { version: 'desc' }],
+        ...this.pagination.getSkipTake(query),
+      }),
+      this.prisma.publicApiVersion.count({ where }),
+    ]);
+    return this.pagination.buildResponse(
+      items.map((item) => new PublicApiVersionEntity(item)),
+      total,
+      query,
+    );
+  }
+
+  async createVersion(dto: CreatePublicApiVersionDto) {
+    await this.ensureApiExists(dto.apiId);
+    await this.ensureVersionUnique(dto.apiId, dto.version);
+    const status = dto.status ?? 'DRAFT';
+    this.assertStatus('DRAFT', status);
+    const item = await this.prisma.publicApiVersion.create({
+      data: {
+        apiId: dto.apiId,
+        version: dto.version,
+        pathPrefix: dto.pathPrefix,
+        status,
+        lifecycle: dto.lifecycle ?? this.lifecycleForStatus(status),
+        releasedAt: dto.releasedAt ? new Date(dto.releasedAt) : undefined,
+        deprecatedAt: dto.deprecatedAt ? new Date(dto.deprecatedAt) : undefined,
+        metadata: this.toJson(dto.metadata),
+        createdById: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'PUBLIC_API_VERSION_CREATE',
+      entity: 'PublicApiVersion',
+      entityId: item.id,
+      payload: { apiId: item.apiId, version: item.version },
+    });
+    return new PublicApiVersionEntity(item);
+  }
+
+  async updateVersion(id: string, dto: UpdatePublicApiVersionDto) {
+    const current = await this.ensureVersionExists(id);
+    if (dto.apiId) await this.ensureApiExists(dto.apiId);
+    if (dto.apiId || dto.version) {
+      await this.ensureVersionUnique(
+        dto.apiId ?? current.apiId,
+        dto.version ?? current.version,
+        id,
+      );
+    }
+    if (dto.status && dto.status !== current.status) {
+      this.assertStatus(current.status, dto.status);
+    }
+    const item = await this.prisma.publicApiVersion.update({
+      where: { id },
+      data: {
+        apiId: dto.apiId,
+        version: dto.version,
+        pathPrefix: dto.pathPrefix,
+        status: dto.status,
+        lifecycle: dto.lifecycle ?? (dto.status ? this.lifecycleForStatus(dto.status) : undefined),
+        releasedAt: dto.releasedAt ? new Date(dto.releasedAt) : undefined,
+        deprecatedAt: dto.deprecatedAt ? new Date(dto.deprecatedAt) : undefined,
+        metadata: dto.metadata === undefined ? undefined : this.toJson(dto.metadata),
+        updatedById: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'PUBLIC_API_VERSION_UPDATE',
+      entity: 'PublicApiVersion',
+      entityId: item.id,
+      payload: { before: current, after: item } as Prisma.InputJsonObject,
+    });
+    return new PublicApiVersionEntity(item);
+  }
+
+  private async resolveTenantId(tenantId?: string | null): Promise<string | null> {
+    const resolved = tenantId ?? this.context.getTenantId();
+    if (!resolved) return null;
+    const tenant = await this.prisma.tenant.findFirst({
+      where: this.softDelete.activeWhere({ id: resolved }),
+      select: { id: true },
+    });
+    if (!tenant) throw new NotFoundException('Tenant not found');
+    return resolved;
+  }
+
+  private assertStatus(currentStatus: PublicApiStatus, nextStatus: PublicApiStatus) {
+    if (currentStatus === nextStatus) return;
+    this.transitions.assertTransition({
+      entity: 'PublicApi',
+      currentStatus,
+      nextStatus,
+      rules: this.statusRules,
+    });
+  }
+
+  private lifecycleForStatus(status: PublicApiStatus): PublicApiLifecycle {
+    if (status === 'ACTIVE') return 'PUBLISHED';
+    if (status === 'DEPRECATED') return 'DEPRECATED';
+    if (status === 'RETIRED' || status === 'ARCHIVED') return 'RETIRED';
+    return 'DESIGN';
+  }
+
+  private async ensureGroupExists(id: string, tenantId?: string | null) {
+    const item = await this.prisma.publicApiGroup.findFirst({
+      where: this.softDelete.activeWhere({
+        id,
+        ...(tenantId !== undefined ? { tenantId } : {}),
+      }),
+    });
+    if (!item) throw new NotFoundException('Public API group not found');
+    return item;
+  }
+
+  private async ensureApiExists(id: string) {
+    const item = await this.prisma.publicApiRegistry.findFirst({
+      where: this.softDelete.activeWhere({ id }),
+    });
+    if (!item) throw new NotFoundException('Public API not found');
+    return item;
+  }
+
+  private async ensureVersionExists(id: string) {
+    const item = await this.prisma.publicApiVersion.findFirst({
+      where: this.softDelete.activeWhere({ id }),
+    });
+    if (!item) throw new NotFoundException('Public API version not found');
+    return item;
+  }
+
+  private async ensureGroupUnique(
+    tenantId: string | null,
+    code: string,
+    excludeId?: string,
+  ) {
+    const item = await this.prisma.publicApiGroup.findFirst({
+      where: { tenantId, code, ...(excludeId ? { id: { not: excludeId } } : {}) },
+    });
+    if (item) throw new ConflictException('Public API group already exists');
+  }
+
+  private async ensureApiUnique(
+    tenantId: string | null,
+    code: string,
+    excludeId?: string,
+  ) {
+    const item = await this.prisma.publicApiRegistry.findFirst({
+      where: { tenantId, code, ...(excludeId ? { id: { not: excludeId } } : {}) },
+    });
+    if (item) throw new ConflictException('Public API already exists');
+  }
+
+  private async ensureVersionUnique(
+    apiId: string,
+    version: string,
+    excludeId?: string,
+  ) {
+    const item = await this.prisma.publicApiVersion.findFirst({
+      where: { apiId, version, ...(excludeId ? { id: { not: excludeId } } : {}) },
+    });
+    if (item) throw new ConflictException('Public API version already exists');
+  }
+
+  private toJson(value: unknown): Prisma.InputJsonValue | undefined {
+    return value === undefined ? undefined : (value as Prisma.InputJsonValue);
+  }
+}

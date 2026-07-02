@@ -486,6 +486,22 @@ enum TenantUsagePeriod {
   LIFETIME
 }
 
+enum PublicApiStatus {
+  DRAFT
+  ACTIVE
+  DEPRECATED
+  RETIRED
+  ARCHIVED
+}
+
+enum PublicApiLifecycle {
+  DESIGN
+  REVIEW
+  PUBLISHED
+  DEPRECATED
+  RETIRED
+}
+
 enum RecruitmentStatus {
   ACTIVE
   INACTIVE
@@ -840,6 +856,8 @@ model Tenant {
   events    TenantProvisioningEvent[]
   policies  TenantPermissionPolicy[]
   audits    TenantAuditEvent[]
+  apiGroups PublicApiGroup[]
+  apis      PublicApiRegistry[]
 
   @@index([code])
   @@index([status])
@@ -1053,6 +1071,92 @@ model TenantAuditEvent {
   @@index([entity])
   @@index([entityId])
   @@index([createdAt])
+}
+
+model PublicApiGroup {
+  id          String          @id @default(cuid())
+  tenantId    String?
+  code        String
+  name        String
+  description String?
+  status      PublicApiStatus @default(DRAFT)
+  metadata    Json?
+  deletedAt   DateTime?
+  deletedById String?
+  createdById String?
+  updatedById String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  tenant Tenant?             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  apis   PublicApiRegistry[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([code])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model PublicApiRegistry {
+  id          String             @id @default(cuid())
+  tenantId    String?
+  groupId     String?
+  code        String
+  name        String
+  description String?
+  basePath    String
+  status      PublicApiStatus    @default(DRAFT)
+  lifecycle   PublicApiLifecycle @default(DESIGN)
+  metadata    Json?
+  deletedAt   DateTime?
+  deletedById String?
+  createdById String?
+  updatedById String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  tenant   Tenant?            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  group    PublicApiGroup?    @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  versions PublicApiVersion[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([groupId])
+  @@index([code])
+  @@index([basePath])
+  @@index([status])
+  @@index([lifecycle])
+  @@index([deletedAt])
+}
+
+model PublicApiVersion {
+  id           String             @id @default(cuid())
+  apiId        String
+  version      String
+  pathPrefix   String?
+  status       PublicApiStatus    @default(DRAFT)
+  lifecycle    PublicApiLifecycle @default(DESIGN)
+  releasedAt   DateTime?
+  deprecatedAt DateTime?
+  metadata     Json?
+  deletedAt    DateTime?
+  deletedById  String?
+  createdById  String?
+  updatedById  String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  api PublicApiRegistry @relation(fields: [apiId], references: [id], onDelete: Cascade)
+
+  @@unique([apiId, version])
+  @@index([apiId])
+  @@index([version])
+  @@index([status])
+  @@index([lifecycle])
+  @@index([releasedAt])
+  @@index([deprecatedAt])
+  @@index([deletedAt])
 }
 
 model Account {
