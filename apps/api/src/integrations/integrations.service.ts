@@ -376,6 +376,25 @@ export class IntegrationsService {
     };
   }
 
+  async restoreCredential(id: string) {
+    const result = await this.softDelete.restore(
+      this.prisma.integrationCredential as never,
+      id,
+    );
+
+    await this.audit.record({
+      action: 'INTEGRATION_CREDENTIAL_RESTORE',
+      entity: 'IntegrationCredential',
+      entityId: id,
+      payload: { restored: true },
+    });
+
+    return {
+      success: true,
+      restoredCredential: new IntegrationCredentialEntity(result.record),
+    };
+  }
+
   enableCredential(id: string) {
     return this.updateCredential(id, { status: IntegrationStatus.ACTIVE });
   }
@@ -523,6 +542,25 @@ export class IntegrationsService {
     return {
       success: true,
       deletedConnection: new IntegrationConnectionEntity(result.record),
+    };
+  }
+
+  async restoreConnection(id: string) {
+    const result = await this.softDelete.restore(
+      this.prisma.integrationConnection as never,
+      id,
+    );
+
+    await this.audit.record({
+      action: 'INTEGRATION_CONNECTION_RESTORE',
+      entity: 'IntegrationConnection',
+      entityId: id,
+      payload: { restored: true },
+    });
+
+    return {
+      success: true,
+      restoredConnection: new IntegrationConnectionEntity(result.record),
     };
   }
 
@@ -741,6 +779,25 @@ export class IntegrationsService {
     };
   }
 
+  async restoreRetryPolicy(id: string) {
+    const result = await this.softDelete.restore(
+      this.prisma.integrationRetryPolicy as never,
+      id,
+    );
+
+    await this.audit.record({
+      action: 'INTEGRATION_RETRY_POLICY_RESTORE',
+      entity: 'IntegrationRetryPolicy',
+      entityId: id,
+      payload: { restored: true },
+    });
+
+    return {
+      success: true,
+      restoredRetryPolicy: new IntegrationRetryPolicyEntity(result.record),
+    };
+  }
+
   enableRetryPolicy(id: string) {
     return this.updateRetryPolicy(id, { status: IntegrationStatus.ACTIVE });
   }
@@ -906,6 +963,25 @@ export class IntegrationsService {
     };
   }
 
+  async restoreWebhook(id: string) {
+    const result = await this.softDelete.restore(
+      this.prisma.integrationWebhook as never,
+      id,
+    );
+
+    await this.audit.record({
+      action: 'INTEGRATION_WEBHOOK_RESTORE',
+      entity: 'IntegrationWebhook',
+      entityId: id,
+      payload: { restored: true },
+    });
+
+    return {
+      success: true,
+      restoredWebhook: new IntegrationWebhookEntity(result.record),
+    };
+  }
+
   enableWebhook(id: string) {
     return this.updateWebhook(id, { status: IntegrationStatus.ACTIVE });
   }
@@ -1053,6 +1129,25 @@ export class IntegrationsService {
     return {
       success: true,
       deletedRestConnector: new IntegrationRestConnectorEntity(result.record),
+    };
+  }
+
+  async restoreRestConnector(id: string) {
+    const result = await this.softDelete.restore(
+      this.prisma.integrationRestConnector as never,
+      id,
+    );
+
+    await this.audit.record({
+      action: 'INTEGRATION_REST_CONNECTOR_RESTORE',
+      entity: 'IntegrationRestConnector',
+      entityId: id,
+      payload: { restored: true },
+    });
+
+    return {
+      success: true,
+      restoredRestConnector: new IntegrationRestConnectorEntity(result.record),
     };
   }
 

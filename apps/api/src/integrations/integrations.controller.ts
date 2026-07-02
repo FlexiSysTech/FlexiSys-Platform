@@ -139,6 +139,14 @@ export class IntegrationsController {
     return this.service.removeCredential(id);
   }
 
+  @Post('credentials/:id/restore')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_UPDATE)
+  @ApiOperation({ summary: 'Restore integration credential' })
+  restoreCredential(@Param('id') id: string) {
+    return this.service.restoreCredential(id);
+  }
+
   @Post('credentials/:id/enable')
   @Roles('SUPER_ADMIN')
   @Permissions(Permission.INTEGRATIONS_UPDATE)
@@ -188,6 +196,14 @@ export class IntegrationsController {
   @ApiOperation({ summary: 'Soft delete integration connection' })
   removeConnection(@Param('id') id: string) {
     return this.service.removeConnection(id);
+  }
+
+  @Post('connections/:id/restore')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_UPDATE)
+  @ApiOperation({ summary: 'Restore integration connection' })
+  restoreConnection(@Param('id') id: string) {
+    return this.service.restoreConnection(id);
   }
 
   @Post('connections/:id/test')
@@ -265,6 +281,14 @@ export class IntegrationsController {
     return this.service.removeRetryPolicy(id);
   }
 
+  @Post('retry-policies/:id/restore')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_UPDATE)
+  @ApiOperation({ summary: 'Restore integration retry policy' })
+  restoreRetryPolicy(@Param('id') id: string) {
+    return this.service.restoreRetryPolicy(id);
+  }
+
   @Post('retry-policies/:id/enable')
   @Roles('SUPER_ADMIN')
   @Permissions(Permission.INTEGRATIONS_UPDATE)
@@ -311,6 +335,14 @@ export class IntegrationsController {
   @ApiOperation({ summary: 'Soft delete outbound webhook' })
   removeWebhook(@Param('id') id: string) {
     return this.service.removeWebhook(id);
+  }
+
+  @Post('webhooks/:id/restore')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_UPDATE)
+  @ApiOperation({ summary: 'Restore outbound webhook' })
+  restoreWebhook(@Param('id') id: string) {
+    return this.service.restoreWebhook(id);
   }
 
   @Post('webhooks/:id/enable')
@@ -362,6 +394,14 @@ export class IntegrationsController {
   @ApiOperation({ summary: 'Soft delete REST connector' })
   removeRestConnector(@Param('id') id: string) {
     return this.service.removeRestConnector(id);
+  }
+
+  @Post('rest-connectors/:id/restore')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_UPDATE)
+  @ApiOperation({ summary: 'Restore REST connector' })
+  restoreRestConnector(@Param('id') id: string) {
+    return this.service.restoreRestConnector(id);
   }
 
   @Post('rest-connectors/:id/enable')
