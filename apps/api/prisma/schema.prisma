@@ -563,6 +563,20 @@ enum ObservabilityLogLevel {
   FATAL
 }
 
+enum ObservabilityTraceStatus {
+  STARTED
+  SUCCESS
+  ERROR
+}
+
+enum ObservabilitySpanType {
+  REQUEST
+  SERVICE
+  DATABASE
+  EXTERNAL_PROVIDER
+  CUSTOM
+}
+
 enum RecruitmentStatus {
   ACTIVE
   INACTIVE
@@ -930,6 +944,8 @@ model Tenant {
   observabilityMetricDefinitions ObservabilityMetricDefinition[]
   observabilityMetricSamples     ObservabilityMetricSample[]
   observabilityLogs              ObservabilityLogEntry[]
+  observabilityTraces            ObservabilityTrace[]
+  observabilitySpans             ObservabilitySpan[]
 
   @@index([code])
   @@index([status])
@@ -1542,6 +1558,64 @@ model ObservabilityLogEntry {
   @@index([level])
   @@index([statusCode])
   @@index([createdAt])
+}
+
+model ObservabilityTrace {
+  id            String                   @id @default(cuid())
+  traceId       String                   @unique
+  tenantId      String?
+  userId        String?
+  correlationId String?
+  requestId     String?
+  rootSpanName  String
+  status        ObservabilityTraceStatus @default(STARTED)
+  durationMs    Int?
+  startedAt     DateTime                 @default(now())
+  endedAt       DateTime?
+  metadata      Json?
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+
+  tenant Tenant?             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  spans  ObservabilitySpan[]
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([correlationId])
+  @@index([requestId])
+  @@index([status])
+  @@index([startedAt])
+  @@index([endedAt])
+}
+
+model ObservabilitySpan {
+  id            String                   @id @default(cuid())
+  traceRecordId String
+  tenantId      String?
+  parentSpanId  String?
+  spanName      String
+  moduleName    String
+  spanType      ObservabilitySpanType
+  status        ObservabilityTraceStatus @default(STARTED)
+  durationMs    Int?
+  startedAt     DateTime                 @default(now())
+  endedAt       DateTime?
+  metadata      Json?
+  createdAt     DateTime                 @default(now())
+
+  trace    ObservabilityTrace  @relation(fields: [traceRecordId], references: [id], onDelete: Cascade)
+  tenant   Tenant?             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent   ObservabilitySpan?  @relation("ObservabilitySpanHierarchy", fields: [parentSpanId], references: [id], onDelete: SetNull)
+  children ObservabilitySpan[] @relation("ObservabilitySpanHierarchy")
+
+  @@index([traceRecordId])
+  @@index([tenantId])
+  @@index([parentSpanId])
+  @@index([moduleName])
+  @@index([spanType])
+  @@index([status])
+  @@index([startedAt])
+  @@index([endedAt])
 }
 
 model Account {

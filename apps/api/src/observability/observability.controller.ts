@@ -29,6 +29,11 @@ import {
   ObservabilityLogQueryDto,
   RecordLogEntryDto,
 } from './dto/observability-logging.dto';
+import {
+  ObservabilityTraceQueryDto,
+  RecordSpanDto,
+  StartTraceDto,
+} from './dto/observability-tracing.dto';
 import { ObservabilityService } from './observability.service';
 
 @ApiTags('Observability')
@@ -217,5 +222,69 @@ export class ObservabilityController {
   @ApiOperation({ summary: 'Get log level summary' })
   getLogLevelSummary(@Query() query: ObservabilityLogQueryDto) {
     return this.service.getLogLevelSummary(query);
+  }
+
+  @Get('traces')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.OBSERVABILITY_READ)
+  @ApiOperation({ summary: 'Get distributed traces' })
+  findTraces(@Query() query: ObservabilityTraceQueryDto) {
+    return this.service.findTraces(query);
+  }
+
+  @Post('traces')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.OBSERVABILITY_CREATE)
+  @ApiOperation({ summary: 'Start distributed trace' })
+  startTrace(@Body() dto: StartTraceDto) {
+    return this.service.startTrace(dto);
+  }
+
+  @Get('traces/spans')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.OBSERVABILITY_READ)
+  @ApiOperation({ summary: 'Get distributed trace spans' })
+  findSpans(@Query() query: ObservabilityTraceQueryDto) {
+    return this.service.findSpans(query);
+  }
+
+  @Post('traces/spans')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.OBSERVABILITY_CREATE)
+  @ApiOperation({ summary: 'Record distributed trace span' })
+  recordSpan(@Body() dto: RecordSpanDto) {
+    return this.service.recordSpan(dto);
+  }
+
+  @Get('traces/requests')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.OBSERVABILITY_READ)
+  @ApiOperation({ summary: 'Get request tracing summary' })
+  getRequestTraceSummary(@Query() query: ObservabilityTraceQueryDto) {
+    return this.service.getRequestTraceSummary(query);
+  }
+
+  @Get('traces/services')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.OBSERVABILITY_READ)
+  @ApiOperation({ summary: 'Get service tracing summary' })
+  getServiceTraceSummary(@Query() query: ObservabilityTraceQueryDto) {
+    return this.service.getServiceTraceSummary(query);
+  }
+
+  @Get('traces/database')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.OBSERVABILITY_READ)
+  @ApiOperation({ summary: 'Get database timing summary' })
+  getDatabaseTraceSummary(@Query() query: ObservabilityTraceQueryDto) {
+    return this.service.getDatabaseTraceSummary(query);
+  }
+
+  @Get('traces/external-providers')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.OBSERVABILITY_READ)
+  @ApiOperation({ summary: 'Get external provider timing summary' })
+  getExternalProviderTraceSummary(@Query() query: ObservabilityTraceQueryDto) {
+    return this.service.getExternalProviderTraceSummary(query);
   }
 }

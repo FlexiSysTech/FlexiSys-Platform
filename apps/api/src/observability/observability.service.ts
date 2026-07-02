@@ -3,12 +3,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import {
   ObservabilityCheckType,
   ObservabilityHealthStatus,
   ObservabilityLogLevel,
   ObservabilityMetricType,
   ObservabilityProviderStatus,
+  ObservabilitySpanType,
   Prisma,
 } from '@prisma/client';
 
@@ -35,6 +37,11 @@ import {
   RecordLogEntryDto,
 } from './dto/observability-logging.dto';
 import {
+  ObservabilityTraceQueryDto,
+  RecordSpanDto,
+  StartTraceDto,
+} from './dto/observability-tracing.dto';
+import {
   ObservabilityHealthCheckResultEntity,
   ObservabilityHealthProviderEntity,
   ObservabilitySystemHealthEntity,
@@ -45,6 +52,10 @@ import {
   ObservabilityMetricSummaryEntity,
 } from './entities/observability-metrics.entity';
 import { ObservabilityLogEntryEntity } from './entities/observability-logging.entity';
+import {
+  ObservabilitySpanEntity,
+  ObservabilityTraceEntity,
+} from './entities/observability-tracing.entity';
 
 @Injectable()
 export class ObservabilityService {
@@ -502,6 +513,134 @@ export class ObservabilityService {
     return levels.map((level, index) => ({ level, count: counts[index] }));
   }
 
+  async findTraces(query: ObservabilityTraceQueryDto) {
+    const tenantId = query.tenantId ?? this.context.getTenantId();
+    const where: Prisma.ObservabilityTraceWhereInput = {
+      ...(tenantId ? { tenantId } : {}),
+      ...(query.traceId ? { traceId: query.traceId } : {}),
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.moduleName ? { spans: { some: { moduleName: query.moduleName } } } : {}),
+    };
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.observabilityTrace.findMany({
+        where,
+        orderBy: { startedAt: 'desc' },
+        ...this.pagination.getSkipTake(query),
+      }),
+      this.prisma.observabilityTrace.count({ where }),
+    ]);
+    return this.pagination.buildResponse(
+      items.map((item) => new ObservabilityTraceEntity(item)),
+      total,
+      query,
+    );
+  }
+
+  async startTrace(dto: StartTraceDto) {
+    const tenantId = await this.resolveTenantId(dto.tenantId);
+    const metadata = this.context.getMetadata();
+    const trace = await this.prisma.observabilityTrace.create({
+      data: {
+        traceId: dto.traceId ?? randomUUID(),
+        tenantId,
+        userId: this.context.getUserId(),
+        correlationId: metadata?.correlationId,
+        requestId: metadata?.requestId,
+        rootSpanName: dto.rootSpanName,
+        status: 'STARTED',
+        metadata: this.toJson(dto.metadata),
+      },
+    });
+    return new ObservabilityTraceEntity(trace);
+  }
+
+  async recordSpan(dto: RecordSpanDto) {
+    const trace = await this.ensureTraceExists(dto.traceRecordId);
+    if (dto.parentSpanId) await this.ensureSpanExists(dto.parentSpanId);
+    const tenantId = dto.tenantId ?? trace.tenantId ?? this.context.getTenantId();
+    const now = new Date();
+    const span = await this.prisma.observabilitySpan.create({
+      data: {
+        traceRecordId: dto.traceRecordId,
+        tenantId,
+        parentSpanId: dto.parentSpanId,
+        spanName: dto.spanName,
+        moduleName: dto.moduleName,
+        spanType: dto.spanType,
+        status: dto.status ?? 'SUCCESS',
+        durationMs: dto.durationMs,
+        endedAt: dto.status === 'STARTED' ? undefined : now,
+        metadata: this.toJson(dto.metadata),
+      },
+    });
+    if ((dto.status ?? 'SUCCESS') !== 'STARTED') {
+      await this.updateTraceCompletion(dto.traceRecordId);
+    }
+    return new ObservabilitySpanEntity(span);
+  }
+
+  async findSpans(query: ObservabilityTraceQueryDto) {
+    const tenantId = query.tenantId ?? this.context.getTenantId();
+    const where: Prisma.ObservabilitySpanWhereInput = {
+      ...(tenantId ? { tenantId } : {}),
+      ...(query.moduleName ? { moduleName: query.moduleName } : {}),
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.traceId ? { trace: { traceId: query.traceId } } : {}),
+    };
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.observabilitySpan.findMany({
+        where,
+        orderBy: { startedAt: 'desc' },
+        ...this.pagination.getSkipTake(query),
+      }),
+      this.prisma.observabilitySpan.count({ where }),
+    ]);
+    return this.pagination.buildResponse(
+      items.map((item) => new ObservabilitySpanEntity(item)),
+      total,
+      query,
+    );
+  }
+
+  getRequestTraceSummary(query: ObservabilityTraceQueryDto) {
+    return this.getSpanSummary('REQUEST', query);
+  }
+
+  getServiceTraceSummary(query: ObservabilityTraceQueryDto) {
+    return this.getSpanSummary('SERVICE', query);
+  }
+
+  getDatabaseTraceSummary(query: ObservabilityTraceQueryDto) {
+    return this.getSpanSummary('DATABASE', query);
+  }
+
+  getExternalProviderTraceSummary(query: ObservabilityTraceQueryDto) {
+    return this.getSpanSummary('EXTERNAL_PROVIDER', query);
+  }
+
+  private async getSpanSummary(
+    spanType: ObservabilitySpanType,
+    query: ObservabilityTraceQueryDto,
+  ) {
+    const tenantId = query.tenantId ?? this.context.getTenantId();
+    const aggregate = await this.prisma.observabilitySpan.aggregate({
+      where: {
+        ...(tenantId ? { tenantId } : {}),
+        spanType,
+        ...(query.moduleName ? { moduleName: query.moduleName } : {}),
+      },
+      _count: { _all: true },
+      _avg: { durationMs: true },
+      _max: { durationMs: true },
+    });
+    return {
+      spanType,
+      totalSpans: aggregate._count._all,
+      averageDurationMs: aggregate._avg.durationMs ?? null,
+      maxDurationMs: aggregate._max.durationMs ?? null,
+    };
+  }
+
   private async getMetricSummary(
     metricType: ObservabilityMetricType,
     query: ObservabilityMetricQueryDto,
@@ -679,6 +818,33 @@ export class ObservabilityService {
       },
     });
     if (definition) throw new ConflictException('Metric definition already exists');
+  }
+
+  private async ensureTraceExists(id: string) {
+    const trace = await this.prisma.observabilityTrace.findUnique({ where: { id } });
+    if (!trace) throw new NotFoundException('Trace not found');
+    return trace;
+  }
+
+  private async ensureSpanExists(id: string) {
+    const span = await this.prisma.observabilitySpan.findUnique({ where: { id } });
+    if (!span) throw new NotFoundException('Span not found');
+    return span;
+  }
+
+  private async updateTraceCompletion(traceRecordId: string) {
+    const spans = await this.prisma.observabilitySpan.findMany({
+      where: { traceRecordId },
+      select: { status: true, durationMs: true },
+    });
+    await this.prisma.observabilityTrace.update({
+      where: { id: traceRecordId },
+      data: {
+        status: spans.some((span) => span.status === 'ERROR') ? 'ERROR' : 'SUCCESS',
+        durationMs: spans.reduce((sum, span) => sum + (span.durationMs ?? 0), 0),
+        endedAt: new Date(),
+      },
+    });
   }
 
   private toJson(value: unknown): Prisma.InputJsonValue | undefined {
