@@ -510,4 +510,28 @@ export class PluginsController {
   validateIsolation(@Param('id') id: string) {
     return this.service.validateIsolation(id);
   }
+
+  @Post('management/upload')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PLUGINS_CREATE)
+  @ApiOperation({ summary: 'Upload plugin manifest package metadata' })
+  uploadManifest(@Body() dto: CreatePluginManifestDto) {
+    return this.service.uploadManifest(dto);
+  }
+
+  @Get('management/registry/:id/health')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PLUGINS_READ)
+  @ApiOperation({ summary: 'Get plugin health' })
+  getPluginHealth(@Param('id') id: string) {
+    return this.service.getPluginHealth(id);
+  }
+
+  @Get('management/metrics')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PLUGINS_READ)
+  @ApiOperation({ summary: 'Get plugin metrics' })
+  getMetrics(@Query('companyId') companyId?: string) {
+    return this.service.getMetrics(companyId);
+  }
 }

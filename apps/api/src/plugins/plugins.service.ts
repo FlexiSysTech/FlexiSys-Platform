@@ -9,6 +9,7 @@ import {
   PluginLifecycleState,
   PluginInstallationStatus,
   PluginDependencyStatus,
+  PluginSource,
   PluginStatus,
   Prisma,
 } from '@prisma/client';
@@ -58,7 +59,9 @@ import {
 } from './dto/plugin-sdk.dto';
 import {
   PluginLifecycleEventEntity,
+  PluginHealthEntity,
   PluginManifestEntity,
+  PluginMetricsEntity,
   PluginRegistryEntryEntity,
 } from './entities/plugin-core.entity';
 import {
@@ -1605,6 +1608,94 @@ export class PluginsService {
         config: this.toJson(config),
         createdById: this.context.getUserId(),
       },
+    });
+  }
+
+  uploadManifest(dto: CreatePluginManifestDto) {
+    return this.createManifest({
+      ...dto,
+      source: PluginSource.UPLOAD,
+      status: dto.status ?? 'DRAFT',
+    });
+  }
+
+  async getPluginHealth(registryEntryId: string) {
+    const entry = await this.ensureRegistryEntryExists(registryEntryId);
+    const healthy = entry.lifecycle === 'ENABLED' || entry.lifecycle === 'LOADED';
+    await this.prisma.pluginLifecycleEvent.create({
+      data: {
+        registryEntryId,
+        action: 'HEALTH_CHECK',
+        fromState: entry.lifecycle,
+        toState: entry.lifecycle,
+        success: healthy,
+        message: healthy ? 'Plugin health check passed' : entry.lastError,
+        actorId: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'PLUGIN_HEALTH_CHECK',
+      entity: 'PluginRegistryEntry',
+      entityId: registryEntryId,
+      payload: { healthy, lifecycle: entry.lifecycle },
+    });
+    return new PluginHealthEntity({
+      registryEntryId,
+      healthy,
+      lifecycle: entry.lifecycle,
+      lastError: entry.lastError,
+    });
+  }
+
+  async getMetrics(companyId?: string) {
+    const resolvedCompanyId = companyId ?? this.context.getCompanyId();
+    const whereCompany = resolvedCompanyId ? { companyId: resolvedCompanyId } : {};
+    const [
+      totalManifests,
+      activeManifests,
+      loadedPlugins,
+      enabledPlugins,
+      failedPlugins,
+      installedPackages,
+    ] = await this.prisma.$transaction([
+      this.prisma.pluginManifest.count({
+        where: this.softDelete.activeWhere(whereCompany),
+      }),
+      this.prisma.pluginManifest.count({
+        where: this.softDelete.activeWhere({
+          ...whereCompany,
+          status: 'ACTIVE',
+        }),
+      }),
+      this.prisma.pluginRegistryEntry.count({
+        where: this.softDelete.activeWhere(whereCompany),
+      }),
+      this.prisma.pluginRegistryEntry.count({
+        where: this.softDelete.activeWhere({
+          ...whereCompany,
+          lifecycle: 'ENABLED',
+        }),
+      }),
+      this.prisma.pluginRegistryEntry.count({
+        where: this.softDelete.activeWhere({
+          ...whereCompany,
+          lifecycle: 'ERROR',
+        }),
+      }),
+      this.prisma.pluginInstallation.count({
+        where: {
+          ...whereCompany,
+          status: { in: ['INSTALLED', 'ENABLED', 'DISABLED'] },
+        },
+      }),
+    ]);
+    return new PluginMetricsEntity({
+      totalManifests,
+      activeManifests,
+      loadedPlugins,
+      enabledPlugins,
+      failedPlugins,
+      installedPackages,
     });
   }
 

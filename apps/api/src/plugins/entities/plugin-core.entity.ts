@@ -125,3 +125,45 @@ export class PluginLifecycleEventEntity {
   @ApiProperty()
   createdAt!: Date;
 }
+
+export class PluginHealthEntity {
+  constructor(partial: Partial<PluginHealthEntity>) {
+    Object.assign(this, partial);
+  }
+
+  @ApiProperty()
+  registryEntryId!: string;
+
+  @ApiProperty()
+  healthy!: boolean;
+
+  @ApiProperty()
+  lifecycle!: PluginLifecycleState;
+
+  @ApiPropertyOptional({ nullable: true })
+  lastError!: string | null;
+}
+
+export class PluginMetricsEntity {
+  constructor(partial: Partial<PluginMetricsEntity>) {
+    Object.assign(this, partial);
+  }
+
+  @ApiProperty()
+  totalManifests!: number;
+
+  @ApiProperty()
+  activeManifests!: number;
+
+  @ApiProperty()
+  loadedPlugins!: number;
+
+  @ApiProperty()
+  enabledPlugins!: number;
+
+  @ApiProperty()
+  failedPlugins!: number;
+
+  @ApiProperty()
+  installedPackages!: number;
+}
