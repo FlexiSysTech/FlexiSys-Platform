@@ -36,6 +36,7 @@ import {
   ObservabilityLogQueryDto,
   RecordLogEntryDto,
 } from './dto/observability-logging.dto';
+import { ObservabilityManagementQueryDto } from './dto/observability-management.dto';
 import {
   ObservabilityTraceQueryDto,
   RecordSpanDto,
@@ -52,6 +53,11 @@ import {
   ObservabilityMetricSummaryEntity,
 } from './entities/observability-metrics.entity';
 import { ObservabilityLogEntryEntity } from './entities/observability-logging.entity';
+import {
+  ObservabilityDiagnosticsEntity,
+  ObservabilityMetricsOverviewEntity,
+  ObservabilitySystemStatusEntity,
+} from './entities/observability-management.entity';
 import {
   ObservabilitySpanEntity,
   ObservabilityTraceEntity,
@@ -616,6 +622,150 @@ export class ObservabilityService {
 
   getExternalProviderTraceSummary(query: ObservabilityTraceQueryDto) {
     return this.getSpanSummary('EXTERNAL_PROVIDER', query);
+  }
+
+  async getSystemStatus(query: ObservabilityManagementQueryDto) {
+    const tenantId = query.tenantId ?? this.context.getTenantId();
+    const since = new Date(Date.now() - 60 * 60 * 1000);
+    const [
+      activeHealthProviders,
+      unhealthyChecks,
+      errorLogsLastHour,
+      failedTracesLastHour,
+      metricSamplesLastHour,
+    ] = await this.prisma.$transaction([
+      this.prisma.observabilityHealthProvider.count({
+        where: this.softDelete.activeWhere({
+          ...(tenantId ? { tenantId } : {}),
+          status: 'ACTIVE',
+        }),
+      }),
+      this.prisma.observabilityHealthCheckResult.count({
+        where: {
+          ...(tenantId ? { tenantId } : {}),
+          status: { in: ['DEGRADED', 'DOWN'] },
+          checkedAt: { gte: since },
+        },
+      }),
+      this.prisma.observabilityLogEntry.count({
+        where: {
+          ...(tenantId ? { tenantId } : {}),
+          level: { in: ['ERROR', 'FATAL'] },
+          createdAt: { gte: since },
+        },
+      }),
+      this.prisma.observabilityTrace.count({
+        where: {
+          ...(tenantId ? { tenantId } : {}),
+          status: 'ERROR',
+          startedAt: { gte: since },
+        },
+      }),
+      this.prisma.observabilityMetricSample.count({
+        where: {
+          ...(tenantId ? { tenantId } : {}),
+          recordedAt: { gte: since },
+        },
+      }),
+    ]);
+    const status =
+      unhealthyChecks > 0 || failedTracesLastHour > 0
+        ? 'DOWN'
+        : errorLogsLastHour > 0
+          ? 'DEGRADED'
+          : 'HEALTHY';
+    return new ObservabilitySystemStatusEntity({
+      status,
+      activeHealthProviders,
+      unhealthyChecks,
+      errorLogsLastHour,
+      failedTracesLastHour,
+      metricSamplesLastHour,
+      checkedAt: new Date(),
+    });
+  }
+
+  async getDiagnostics(query: ObservabilityManagementQueryDto) {
+    const tenantId = query.tenantId ?? this.context.getTenantId();
+    const started = Date.now();
+    await this.prisma.$queryRaw`SELECT 1`;
+    const databaseLatencyMs = Date.now() - started;
+    const since = new Date(Date.now() - 60 * 60 * 1000);
+    const [recentHealthFailures, slowEndpoints] = await this.prisma.$transaction([
+      this.prisma.observabilityHealthCheckResult.count({
+        where: {
+          ...(tenantId ? { tenantId } : {}),
+          status: { in: ['DEGRADED', 'DOWN'] },
+          checkedAt: { gte: since },
+        },
+      }),
+      this.prisma.observabilityMetricSample.groupBy({
+        by: ['endpoint'],
+        where: {
+          ...(tenantId ? { tenantId } : {}),
+          metricType: 'HTTP',
+          endpoint: { not: null },
+          recordedAt: { gte: since },
+        },
+        _avg: { durationMs: true },
+        _count: { _all: true },
+        orderBy: { _avg: { durationMs: 'desc' } },
+        take: 5,
+      }),
+    ]);
+    return new ObservabilityDiagnosticsEntity({
+      databaseLatencyMs,
+      recentHealthFailures,
+      slowHttpEndpoints: slowEndpoints.map((item) => ({
+        endpoint: item.endpoint ?? 'unknown',
+        averageDurationMs: item._avg?.durationMs ?? 0,
+        samples:
+          typeof item._count === 'object' && item._count
+            ? item._count._all ?? 0
+            : 0,
+      })),
+      recommendation:
+        recentHealthFailures > 0
+          ? 'Review recent health check failures and failed traces'
+          : databaseLatencyMs > 500
+            ? 'Review database latency and query plans'
+            : null,
+    });
+  }
+
+  async getMetricsOverview(query: ObservabilityManagementQueryDto) {
+    const tenantId = query.tenantId ?? this.context.getTenantId();
+    const baseWhere = tenantId ? { tenantId } : {};
+    const [
+      httpSamples,
+      databaseSamples,
+      workflowSamples,
+      payrollSamples,
+      businessRuleSamples,
+    ] = await this.prisma.$transaction([
+      this.prisma.observabilityMetricSample.count({
+        where: { ...baseWhere, metricType: 'HTTP' },
+      }),
+      this.prisma.observabilityMetricSample.count({
+        where: { ...baseWhere, metricType: 'DATABASE' },
+      }),
+      this.prisma.observabilityMetricSample.count({
+        where: { ...baseWhere, metricType: 'WORKFLOW' },
+      }),
+      this.prisma.observabilityMetricSample.count({
+        where: { ...baseWhere, metricType: 'PAYROLL' },
+      }),
+      this.prisma.observabilityMetricSample.count({
+        where: { ...baseWhere, metricType: 'BUSINESS_RULES' },
+      }),
+    ]);
+    return new ObservabilityMetricsOverviewEntity({
+      httpSamples,
+      databaseSamples,
+      workflowSamples,
+      payrollSamples,
+      businessRuleSamples,
+    });
   }
 
   private async getSpanSummary(

@@ -29,6 +29,7 @@ import {
   ObservabilityLogQueryDto,
   RecordLogEntryDto,
 } from './dto/observability-logging.dto';
+import { ObservabilityManagementQueryDto } from './dto/observability-management.dto';
 import {
   ObservabilityTraceQueryDto,
   RecordSpanDto,
@@ -286,5 +287,37 @@ export class ObservabilityController {
   @ApiOperation({ summary: 'Get external provider timing summary' })
   getExternalProviderTraceSummary(@Query() query: ObservabilityTraceQueryDto) {
     return this.service.getExternalProviderTraceSummary(query);
+  }
+
+  @Get('management/status')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.OBSERVABILITY_ADMIN)
+  @ApiOperation({ summary: 'Get system observability status' })
+  getSystemStatus(@Query() query: ObservabilityManagementQueryDto) {
+    return this.service.getSystemStatus(query);
+  }
+
+  @Get('management/diagnostics')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.OBSERVABILITY_ADMIN)
+  @ApiOperation({ summary: 'Get system diagnostics' })
+  getDiagnostics(@Query() query: ObservabilityManagementQueryDto) {
+    return this.service.getDiagnostics(query);
+  }
+
+  @Get('management/metrics')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.OBSERVABILITY_ADMIN)
+  @ApiOperation({ summary: 'Get management metrics overview' })
+  getMetricsOverview(@Query() query: ObservabilityManagementQueryDto) {
+    return this.service.getMetricsOverview(query);
+  }
+
+  @Get('management/health')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.OBSERVABILITY_ADMIN)
+  @ApiOperation({ summary: 'Get management readiness health' })
+  getManagementHealth(@Query() query: ObservabilityManagementQueryDto) {
+    return this.service.getReadiness(query);
   }
 }
