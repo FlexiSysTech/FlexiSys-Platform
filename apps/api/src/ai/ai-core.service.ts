@@ -20,6 +20,7 @@ import {
   AiRequestLogEntity,
   AiUsageRecordEntity,
 } from './entities/ai-core.entity';
+import { AiGovernanceService } from './ai-governance.service';
 import { AiProvider } from './providers/ai-provider.interface';
 import { InternalAiProvider } from './providers/internal-ai.provider';
 
@@ -32,6 +33,7 @@ export class AiCoreService {
     private readonly audit: AuditService,
     private readonly softDelete: SoftDeleteService,
     private readonly internalProvider: InternalAiProvider,
+    private readonly governance: AiGovernanceService,
   ) {}
 
   async findProviders(query: AiProviderQueryDto) {
@@ -157,6 +159,45 @@ export class AiCoreService {
     const providerConfig = await this.resolveProvider(companyId, dto.providerCode);
     const provider = this.getProvider(providerConfig.code);
     const feature = dto.feature ?? AiFeatureArea.CORE;
+    const assessment = await this.governance.assessRequest({
+      companyId,
+      feature,
+      prompt: dto.prompt,
+    });
+
+    if (!assessment.allowed) {
+      const blocked = await this.prisma.aiRequestLog.create({
+        data: {
+          companyId,
+          providerId: providerConfig.id,
+          feature,
+          operation: dto.operation,
+          status: 'BLOCKED',
+          prompt: dto.prompt,
+          requestPayload: this.toJson({
+            systemPrompt: dto.systemPrompt,
+            context: dto.context,
+          }),
+          error: assessment.reason,
+          requestedById: this.context.getUserId(),
+          metadata: this.toJson(dto.metadata),
+          completedAt: new Date(),
+        },
+      });
+
+      await this.audit.record({
+        action: 'AI_REQUEST_BLOCKED',
+        entity: 'AiRequestLog',
+        entityId: blocked.id,
+        payload: {
+          feature,
+          operation: dto.operation,
+          reason: assessment.reason,
+        },
+      });
+
+      return new AiRequestLogEntity(blocked);
+    }
 
     const log = await this.prisma.aiRequestLog.create({
       data: {

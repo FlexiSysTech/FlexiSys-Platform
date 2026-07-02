@@ -3,6 +3,8 @@ import { Module } from '@nestjs/common';
 import { BusinessRulesModule } from '../business-rules/business-rules.module';
 import { AiCoreController } from './ai-core.controller';
 import { AiCoreService } from './ai-core.service';
+import { AiGovernanceController } from './ai-governance.controller';
+import { AiGovernanceService } from './ai-governance.service';
 import { HrAssistantController } from './hr-assistant.controller';
 import { HrAssistantService } from './hr-assistant.service';
 import { InternalAiProvider } from './providers/internal-ai.provider';
@@ -18,9 +20,11 @@ import { WorkflowAiService } from './workflow-ai.service';
     HrAssistantController,
     WorkflowAiController,
     ReportingAiController,
+    AiGovernanceController,
   ],
   providers: [
     AiCoreService,
+    AiGovernanceService,
     HrAssistantService,
     WorkflowAiService,
     ReportingAiService,
@@ -31,6 +35,7 @@ import { WorkflowAiService } from './workflow-ai.service';
     HrAssistantService,
     WorkflowAiService,
     ReportingAiService,
+    AiGovernanceService,
   ],
 })
 export class AiModule {}

@@ -274,6 +274,13 @@ enum AiFeatureArea {
   GOVERNANCE
 }
 
+enum AiGovernanceStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
 enum RecruitmentStatus {
   ACTIVE
   INACTIVE
@@ -578,6 +585,8 @@ model Company {
   aiProviderConfigs      AiProviderConfig[]
   aiRequestLogs          AiRequestLog[]
   aiUsageRecords         AiUsageRecord[]
+  aiUsageLimits          AiUsageLimit[]
+  aiSafetyPolicies       AiSafetyPolicy[]
 
   @@index([status])
 }
@@ -2127,4 +2136,51 @@ model AiUsageRecord {
   @@index([operation])
   @@index([usedById])
   @@index([usedAt])
+}
+
+model AiUsageLimit {
+  id                String             @id @default(cuid())
+  companyId         String?
+  feature           AiFeatureArea?
+  status            AiGovernanceStatus @default(DRAFT)
+  monthlyTokenLimit Int?
+  monthlyCostLimit  Decimal?           @db.Decimal(14, 4)
+  currency          String             @default("USD")
+  deletedAt         DateTime?
+  deletedById       String?
+  createdById       String?
+  updatedById       String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([feature])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model AiSafetyPolicy {
+  id           String             @id @default(cuid())
+  companyId    String?
+  code         String
+  name         String
+  description  String?
+  status       AiGovernanceStatus @default(DRAFT)
+  blockedTerms Json?
+  deletedAt    DateTime?
+  deletedById  String?
+  createdById  String?
+  updatedById  String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([code])
+  @@index([status])
+  @@index([deletedAt])
 }
