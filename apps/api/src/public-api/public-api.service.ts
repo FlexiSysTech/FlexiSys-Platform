@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { createHash, randomBytes } from 'crypto';
+import { createHash, createHmac, timingSafeEqual, randomBytes } from 'crypto';
 import {
   Prisma,
   PublicApiLifecycle,
@@ -43,6 +43,11 @@ import {
   UpdatePublicApiRateLimitPolicyDto,
 } from './dto/public-api-rate-limits.dto';
 import {
+  PublicApiRequestLogQueryDto,
+  RecordPublicApiRequestLogDto,
+  VerifyPublicApiRequestDto,
+} from './dto/public-api-security.dto';
+import {
   PublicApiApplicationEntity,
   PublicApiApplicationUsageEntity,
 } from './entities/public-api-application.entity';
@@ -55,6 +60,10 @@ import {
   PublicApiRateLimitPolicyEntity,
   PublicApiUsageCounterEntity,
 } from './entities/public-api-rate-limit.entity';
+import {
+  PublicApiRequestLogEntity,
+  PublicApiSignatureVerificationEntity,
+} from './entities/public-api-security.entity';
 import {
   PublicApiEntity,
   PublicApiGroupEntity,
@@ -823,6 +832,123 @@ export class PublicApiService {
     });
   }
 
+  async verifySignedRequest(dto: VerifyPublicApiRequestDto) {
+    const tenantId = await this.resolveTenantId(dto.tenantId);
+    const key = await this.prisma.publicApiKey.findFirst({
+      where: this.softDelete.activeWhere({
+        keyId: dto.keyId,
+        ...(tenantId ? { tenantId } : {}),
+        ...(dto.applicationId ? { applicationId: dto.applicationId } : {}),
+        status: 'ACTIVE',
+      }),
+    });
+    const failure = async (reason: string) => {
+      await this.recordRequestLog({
+        ...dto,
+        tenantId: tenantId ?? undefined,
+        signatureValid: false,
+        statusCode: 401,
+        error: reason,
+      });
+      return new PublicApiSignatureVerificationEntity({
+        valid: false,
+        reason,
+        keyId: dto.keyId,
+      });
+    };
+
+    if (!key) return failure('API key is invalid');
+    if (key.expiresAt && key.expiresAt < new Date()) {
+      return failure('API key is expired');
+    }
+    if (await this.isNonceUsed(tenantId, dto.applicationId, dto.nonce)) {
+      return failure('Request nonce has already been used');
+    }
+    const timestamp = new Date(dto.timestamp);
+    if (Math.abs(Date.now() - timestamp.getTime()) > 5 * 60 * 1000) {
+      return failure('Request timestamp is outside the allowed window');
+    }
+
+    const payload = [
+      dto.method.toUpperCase(),
+      dto.endpoint,
+      dto.timestamp,
+      dto.nonce,
+      dto.requestHash ?? '',
+    ].join(':');
+    const expected = createHmac('sha256', key.secretHash)
+      .update(payload)
+      .digest('hex');
+    const valid = this.safeCompare(expected, dto.signature);
+    await this.markNonceUsed(tenantId, dto.applicationId, dto.nonce);
+    await this.recordRequestLog({
+      ...dto,
+      tenantId: tenantId ?? undefined,
+      signatureValid: valid,
+      statusCode: valid ? 200 : 401,
+      error: valid ? undefined : 'Signature mismatch',
+    });
+    return new PublicApiSignatureVerificationEntity({
+      valid,
+      reason: valid ? null : 'Signature mismatch',
+      keyId: dto.keyId,
+    });
+  }
+
+  async findRequestLogs(query: PublicApiRequestLogQueryDto) {
+    const tenantId = query.tenantId ?? this.context.getTenantId();
+    const where: Prisma.PublicApiRequestLogWhereInput = {
+      ...(tenantId ? { tenantId } : {}),
+      ...(query.applicationId ? { applicationId: query.applicationId } : {}),
+      ...(query.keyId ? { keyId: query.keyId } : {}),
+    };
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.publicApiRequestLog.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        ...this.pagination.getSkipTake(query),
+      }),
+      this.prisma.publicApiRequestLog.count({ where }),
+    ]);
+    return this.pagination.buildResponse(
+      items.map((item) => new PublicApiRequestLogEntity(item)),
+      total,
+      query,
+    );
+  }
+
+  async recordRequestLog(dto: RecordPublicApiRequestLogDto) {
+    const context = this.context.getContext();
+    const item = await this.prisma.publicApiRequestLog.create({
+      data: {
+        tenantId: dto.tenantId,
+        applicationId: dto.applicationId,
+        apiId: dto.apiId,
+        keyId: dto.keyId,
+        method: dto.method.toUpperCase(),
+        endpoint: dto.endpoint,
+        signatureValid: dto.signatureValid ?? false,
+        statusCode: dto.statusCode,
+        requestHash: dto.requestHash,
+        ipAddress: context?.metadata.ipAddress,
+        userAgent: context?.metadata.userAgent,
+        error: dto.error,
+      },
+    });
+    await this.audit.record({
+      action: 'PUBLIC_API_REQUEST_LOG',
+      entity: 'PublicApiRequestLog',
+      entityId: item.id,
+      payload: {
+        tenantId: item.tenantId,
+        applicationId: item.applicationId,
+        keyId: item.keyId,
+        signatureValid: item.signatureValid,
+      },
+    });
+    return new PublicApiRequestLogEntity(item);
+  }
+
   private async resolveTenantId(tenantId?: string | null): Promise<string | null> {
     const resolved = tenantId ?? this.context.getTenantId();
     if (!resolved) return null;
@@ -1032,5 +1158,55 @@ export class PublicApiService {
 
   private hashSecret(secret: string) {
     return createHash('sha256').update(secret).digest('hex');
+  }
+
+  private safeCompare(expected: string, actual: string) {
+    const expectedBuffer = Buffer.from(expected);
+    const actualBuffer = Buffer.from(actual);
+    return (
+      expectedBuffer.length === actualBuffer.length &&
+      timingSafeEqual(expectedBuffer, actualBuffer)
+    );
+  }
+
+  private async isNonceUsed(
+    tenantId: string | null,
+    applicationId: string | undefined,
+    nonce: string,
+  ) {
+    const nonceKey = this.buildNonceKey(tenantId, applicationId, nonce);
+    const existing = await this.prisma.publicApiSignatureNonce.findUnique({
+      where: { nonceKey },
+    });
+    return Boolean(existing?.usedAt && existing.expiresAt > new Date());
+  }
+
+  private async markNonceUsed(
+    tenantId: string | null,
+    applicationId: string | undefined,
+    nonce: string,
+  ) {
+    const nonceKey = this.buildNonceKey(tenantId, applicationId, nonce);
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    await this.prisma.publicApiSignatureNonce.upsert({
+      where: { nonceKey },
+      create: {
+        nonceKey,
+        tenantId,
+        applicationId,
+        nonce,
+        expiresAt,
+        usedAt: new Date(),
+      },
+      update: { usedAt: new Date(), expiresAt },
+    });
+  }
+
+  private buildNonceKey(
+    tenantId: string | null,
+    applicationId: string | undefined,
+    nonce: string,
+  ) {
+    return [tenantId ?? 'global', applicationId ?? 'any-app', nonce].join(':');
   }
 }

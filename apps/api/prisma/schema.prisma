@@ -876,6 +876,8 @@ model Tenant {
   apiKeys              PublicApiKey[]
   apiRateLimitPolicies PublicApiRateLimitPolicy[]
   apiUsageCounters     PublicApiUsageCounter[]
+  apiRequestLogs       PublicApiRequestLog[]
+  apiSignatureNonces   PublicApiSignatureNonce[]
 
   @@index([code])
   @@index([status])
@@ -1139,6 +1141,7 @@ model PublicApiRegistry {
   versions          PublicApiVersion[]
   rateLimitPolicies PublicApiRateLimitPolicy[]
   usageCounters     PublicApiUsageCounter[]
+  requestLogs       PublicApiRequestLog[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -1199,6 +1202,8 @@ model PublicApiApplication {
   keys              PublicApiKey[]
   rateLimitPolicies PublicApiRateLimitPolicy[]
   usageCounters     PublicApiUsageCounter[]
+  requestLogs       PublicApiRequestLog[]
+  signatureNonces   PublicApiSignatureNonce[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -1295,6 +1300,56 @@ model PublicApiUsageCounter {
   @@index([window])
   @@index([windowStart])
   @@index([windowEnd])
+}
+
+model PublicApiRequestLog {
+  id             String   @id @default(cuid())
+  tenantId       String?
+  applicationId  String?
+  apiId          String?
+  keyId          String?
+  method         String
+  endpoint       String
+  signatureValid Boolean  @default(false)
+  statusCode     Int?
+  requestHash    String?
+  ipAddress      String?
+  userAgent      String?
+  error          String?
+  createdAt      DateTime @default(now())
+
+  tenant      Tenant?               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  application PublicApiApplication? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  api         PublicApiRegistry?    @relation(fields: [apiId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([applicationId])
+  @@index([apiId])
+  @@index([keyId])
+  @@index([endpoint])
+  @@index([signatureValid])
+  @@index([statusCode])
+  @@index([createdAt])
+}
+
+model PublicApiSignatureNonce {
+  id            String    @id @default(cuid())
+  nonceKey      String    @unique
+  tenantId      String?
+  applicationId String?
+  nonce         String
+  expiresAt     DateTime
+  usedAt        DateTime?
+  createdAt     DateTime  @default(now())
+
+  tenant      Tenant?               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  application PublicApiApplication? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([applicationId])
+  @@index([nonce])
+  @@index([expiresAt])
+  @@index([usedAt])
 }
 
 model Account {

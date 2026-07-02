@@ -29,6 +29,11 @@ import {
   UpdatePublicApiRateLimitPolicyDto,
 } from './dto/public-api-rate-limits.dto';
 import {
+  PublicApiRequestLogQueryDto,
+  RecordPublicApiRequestLogDto,
+  VerifyPublicApiRequestDto,
+} from './dto/public-api-security.dto';
+import {
   CreatePublicApiDto,
   CreatePublicApiGroupDto,
   CreatePublicApiVersionDto,
@@ -276,5 +281,29 @@ export class PublicApiController {
   @ApiOperation({ summary: 'Get developer application usage statistics' })
   getApplicationUsage(@Param('id') id: string) {
     return this.service.getApplicationUsage(id);
+  }
+
+  @Post('security/verify-signature')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PUBLIC_API_ADMIN)
+  @ApiOperation({ summary: 'Verify signed public API request' })
+  verifySignedRequest(@Body() dto: VerifyPublicApiRequestDto) {
+    return this.service.verifySignedRequest(dto);
+  }
+
+  @Get('security/request-logs')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PUBLIC_API_ADMIN)
+  @ApiOperation({ summary: 'Get public API request logs' })
+  findRequestLogs(@Query() query: PublicApiRequestLogQueryDto) {
+    return this.service.findRequestLogs(query);
+  }
+
+  @Post('security/request-logs')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PUBLIC_API_ADMIN)
+  @ApiOperation({ summary: 'Record public API request log' })
+  recordRequestLog(@Body() dto: RecordPublicApiRequestLogDto) {
+    return this.service.recordRequestLog(dto);
   }
 }
