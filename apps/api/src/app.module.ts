@@ -12,6 +12,7 @@ import { EssModule } from './ess/ess.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { LeaveModule } from './leave/leave.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { ObservabilityModule } from './observability/observability.module';
 import { OrganizationModule } from './organization/organization.module';
 import { PayrollModule } from './payroll/payroll.module';
 import { PerformanceModule } from './performance/performance.module';
@@ -49,6 +50,7 @@ import { WorkflowsModule } from './workflows/workflows.module';
     PluginsModule,
     TenantsModule,
     PublicApiModule,
+    ObservabilityModule,
     PerformanceModule,
     AssetsModule,
     DocumentsModule,

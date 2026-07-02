@@ -131,6 +131,12 @@ export const Permission = {
   PUBLIC_API_DELETE: 'public-api.delete',
   PUBLIC_API_KEYS: 'public-api.keys',
   PUBLIC_API_ADMIN: 'public-api.admin',
+
+  OBSERVABILITY_READ: 'observability.read',
+  OBSERVABILITY_CREATE: 'observability.create',
+  OBSERVABILITY_UPDATE: 'observability.update',
+  OBSERVABILITY_DELETE: 'observability.delete',
+  OBSERVABILITY_ADMIN: 'observability.admin',
 } as const;
 
 export type PermissionCode = (typeof Permission)[keyof typeof Permission];
