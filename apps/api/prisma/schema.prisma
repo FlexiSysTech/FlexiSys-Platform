@@ -720,6 +720,28 @@ enum BiAggregationPeriod {
   YEARLY
 }
 
+enum BiDatasetStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum BiMetricType {
+  COUNT
+  SUM
+  AVERAGE
+  MIN
+  MAX
+  CUSTOM
+}
+
+enum BiExecutionStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
 enum RecruitmentStatus {
   ACTIVE
   INACTIVE
@@ -1054,6 +1076,10 @@ model Company {
   searchQueryLogs            SearchQueryLog[]
   biKpiDefinitions           BiKpiDefinition[]
   biKpiSnapshots             BiKpiSnapshot[]
+  biDatasets                 BiDataset[]
+  biMetricDefinitions        BiMetricDefinition[]
+  biMetricObservations       BiMetricObservation[]
+  biAnalyticsExecutions      BiAnalyticsExecution[]
 
   @@index([status])
   @@index([tenantId])
@@ -1114,6 +1140,10 @@ model Tenant {
   searchQueryLogs                SearchQueryLog[]
   biKpiDefinitions               BiKpiDefinition[]
   biKpiSnapshots                 BiKpiSnapshot[]
+  biDatasets                     BiDataset[]
+  biMetricDefinitions            BiMetricDefinition[]
+  biMetricObservations           BiMetricObservation[]
+  biAnalyticsExecutions          BiAnalyticsExecution[]
 
   @@index([code])
   @@index([status])
@@ -2465,6 +2495,10 @@ model Branch {
   searchQueryLogs   SearchQueryLog[]
   biKpiDefinitions  BiKpiDefinition[]
   biKpiSnapshots    BiKpiSnapshot[]
+  biDatasets        BiDataset[]
+  biMetricDefinitions BiMetricDefinition[]
+  biMetricObservations BiMetricObservation[]
+  biAnalyticsExecutions BiAnalyticsExecution[]
 
   @@unique([companyId, code])
   @@index([tenantId])
