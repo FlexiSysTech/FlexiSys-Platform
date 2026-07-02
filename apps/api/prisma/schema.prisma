@@ -627,6 +627,55 @@ enum SchedulerRecoveryStatus {
   FAILED
 }
 
+enum MobileDevicePlatform {
+  IOS
+  ANDROID
+  WEB
+  OTHER
+}
+
+enum MobileDeviceStatus {
+  ACTIVE
+  INACTIVE
+  REVOKED
+  LOST
+}
+
+enum MobileSessionStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+}
+
+enum MobilePushProvider {
+  FCM
+  APNS
+  EXPO
+  WEB_PUSH
+  NONE
+}
+
+enum MobilePushStatus {
+  PENDING
+  SENT
+  FAILED
+  READ
+  CANCELLED
+}
+
+enum MobileSyncOperation {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+enum MobileSyncStatus {
+  PENDING
+  SYNCED
+  CONFLICT
+  FAILED
+}
+
 enum RecruitmentStatus {
   ACTIVE
   INACTIVE
@@ -834,6 +883,10 @@ model User {
   reviewedPayrollRuns     PayrollRun[]             @relation("PayrollRunReviewedBy")
   approvedPayrollRuns     PayrollRun[]             @relation("PayrollRunApprovedBy")
   workflowDefinitionSteps WorkflowDefinitionStep[]
+  mobileDevices           MobileDevice[]
+  mobileSessions          MobileSession[]
+  mobilePushNotifications MobilePushNotification[]
+  mobileSyncCursors       MobileSyncCursor[]
 }
 
 model Role {
@@ -949,6 +1002,10 @@ model Company {
   pluginRegistryEntries      PluginRegistryEntry[]
   pluginMarketplacePackages  PluginMarketplacePackage[]
   pluginInstallations        PluginInstallation[]
+  mobileDevices              MobileDevice[]
+  mobileSessions             MobileSession[]
+  mobileSyncCursors          MobileSyncCursor[]
+  mobileSyncChanges          MobileSyncChange[]
 
   @@index([status])
   @@index([tenantId])
@@ -1000,6 +1057,11 @@ model Tenant {
   schedulerJobs                  SchedulerScheduledJob[]
   schedulerJobHistories          SchedulerJobHistory[]
   schedulerRecoveries            SchedulerFailureRecovery[]
+  mobileDevices                  MobileDevice[]
+  mobileSessions                 MobileSession[]
+  mobilePushNotifications        MobilePushNotification[]
+  mobileSyncCursors              MobileSyncCursor[]
+  mobileSyncChanges              MobileSyncChange[]
 
   @@index([code])
   @@index([status])
@@ -1827,6 +1889,188 @@ model SchedulerFailureRecovery {
   @@index([createdAt])
 }
 
+model MobileDevice {
+  id               String               @id @default(cuid())
+  tenantId         String?
+  userId           String
+  companyId        String?
+  branchId         String?
+  deviceIdentifier String
+  platform         MobileDevicePlatform
+  appVersion       String?
+  osVersion        String?
+  model            String?
+  manufacturer     String?
+  pushToken        String?
+  pushProvider     MobilePushProvider   @default(NONE)
+  status           MobileDeviceStatus   @default(ACTIVE)
+  lastSeenAt       DateTime?
+  registeredAt     DateTime             @default(now())
+  revokedAt        DateTime?
+  metadata         Json?
+  deletedAt        DateTime?
+  deletedById      String?
+  createdById      String?
+  updatedById      String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  tenant           Tenant?                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user             User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company          Company?                 @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  branch           Branch?                  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  sessions         MobileSession[]
+  pushNotifications MobilePushNotification[]
+  syncCursors      MobileSyncCursor[]
+
+  @@unique([userId, deviceIdentifier])
+  @@index([tenantId])
+  @@index([userId])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([platform])
+  @@index([status])
+  @@index([pushToken])
+  @@index([lastSeenAt])
+  @@index([deletedAt])
+}
+
+model MobileSession {
+  id               String              @id @default(cuid())
+  tenantId         String?
+  userId           String
+  deviceId         String?
+  companyId        String?
+  branchId         String?
+  sessionTokenHash String              @unique
+  refreshTokenHash String              @unique
+  status           MobileSessionStatus @default(ACTIVE)
+  ipAddress        String?
+  userAgent        String?
+  expiresAt        DateTime
+  refreshExpiresAt DateTime
+  lastSeenAt       DateTime?
+  revokedAt        DateTime?
+  revokeReason     String?
+  metadata         Json?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  tenant  Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device  MobileDevice? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  company Company?      @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  branch  Branch?       @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([deviceId])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([status])
+  @@index([expiresAt])
+  @@index([refreshExpiresAt])
+  @@index([lastSeenAt])
+}
+
+model MobilePushNotification {
+  id          String           @id @default(cuid())
+  tenantId    String?
+  userId      String?
+  deviceId    String?
+  provider    MobilePushProvider @default(NONE)
+  status      MobilePushStatus @default(PENDING)
+  title       String
+  message     String
+  payload     Json?
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  readAt      DateTime?
+  failedAt    DateTime?
+  error       String?
+  createdById String?
+  updatedById String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  tenant Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  device MobileDevice? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([deviceId])
+  @@index([provider])
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([createdAt])
+}
+
+model MobileSyncCursor {
+  id           String    @id @default(cuid())
+  tenantId     String?
+  userId       String
+  deviceId     String?
+  companyId    String?
+  branchId     String?
+  scope        String
+  cursor       String
+  lastSyncedAt DateTime?
+  metadata     Json?
+  deletedAt    DateTime?
+  deletedById  String?
+  createdById  String?
+  updatedById  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  tenant  Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device  MobileDevice? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  company Company?      @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  branch  Branch?       @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, deviceId, scope])
+  @@index([tenantId])
+  @@index([userId])
+  @@index([deviceId])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([scope])
+  @@index([lastSyncedAt])
+  @@index([deletedAt])
+}
+
+model MobileSyncChange {
+  id          String              @id @default(cuid())
+  tenantId    String?
+  companyId   String?
+  branchId    String?
+  entityType  String
+  entityId    String
+  operation   MobileSyncOperation
+  version     Int                 @default(1)
+  payload     Json?
+  syncStatus  MobileSyncStatus    @default(PENDING)
+  occurredAt  DateTime            @default(now())
+  metadata    Json?
+  createdAt   DateTime            @default(now())
+
+  tenant  Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  branch  Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([operation])
+  @@index([syncStatus])
+  @@index([occurredAt])
+  @@index([createdAt])
+}
+
 model Account {
   id          String        @id @default(cuid())
   companyId   String
@@ -2024,6 +2268,10 @@ model Branch {
   holidays          Holiday[]
   journalEntryLines JournalEntryLine[]
   businessRules     BusinessRule[]
+  mobileDevices     MobileDevice[]
+  mobileSessions    MobileSession[]
+  mobileSyncCursors MobileSyncCursor[]
+  mobileSyncChanges MobileSyncChange[]
 
   @@unique([companyId, code])
   @@index([tenantId])

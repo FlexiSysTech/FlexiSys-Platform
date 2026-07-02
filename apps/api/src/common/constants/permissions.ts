@@ -144,6 +144,13 @@ export const Permission = {
   SCHEDULER_DELETE: 'scheduler.delete',
   SCHEDULER_EXECUTE: 'scheduler.execute',
   SCHEDULER_MONITOR: 'scheduler.monitor',
+
+  MOBILE_ACCESS: 'mobile.access',
+  MOBILE_READ: 'mobile.read',
+  MOBILE_MANAGE: 'mobile.manage',
+  MOBILE_PUSH: 'mobile.push',
+  MOBILE_SYNC: 'mobile.sync',
+  MOBILE_SESSIONS: 'mobile.sessions',
 } as const;
 
 export type PermissionCode = (typeof Permission)[keyof typeof Permission];
