@@ -27,6 +27,11 @@ import {
   UpdatePublicApiVersionDto,
 } from './dto/public-api-registry.dto';
 import {
+  CreatePublicApiApplicationDto,
+  PublicApiApplicationQueryDto,
+  UpdatePublicApiApplicationDto,
+} from './dto/public-api-applications.dto';
+import {
   CreatePublicApiKeyDto,
   PublicApiKeyQueryDto,
   RotatePublicApiKeyDto,
@@ -37,6 +42,10 @@ import {
   PublicApiRateLimitQueryDto,
   UpdatePublicApiRateLimitPolicyDto,
 } from './dto/public-api-rate-limits.dto';
+import {
+  PublicApiApplicationEntity,
+  PublicApiApplicationUsageEntity,
+} from './entities/public-api-application.entity';
 import {
   PublicApiKeyCreatedEntity,
   PublicApiKeyEntity,
@@ -667,6 +676,153 @@ export class PublicApiService {
     );
   }
 
+  async findApplications(query: PublicApiApplicationQueryDto) {
+    const tenantId = query.tenantId ?? this.context.getTenantId();
+    const normalized = this.pagination.normalize(query);
+    const where: Prisma.PublicApiApplicationWhereInput =
+      this.softDelete.activeWhere({
+        ...(tenantId ? { tenantId } : {}),
+        ...(query.status ? { status: query.status } : {}),
+        ...(normalized.search
+          ? {
+              OR: [
+                { code: { contains: normalized.search, mode: 'insensitive' } },
+                { name: { contains: normalized.search, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      });
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.publicApiApplication.findMany({
+        where,
+        orderBy: { code: 'asc' },
+        ...this.pagination.getSkipTake(query),
+      }),
+      this.prisma.publicApiApplication.count({ where }),
+    ]);
+    return this.pagination.buildResponse(
+      items.map((item) => new PublicApiApplicationEntity(item)),
+      total,
+      query,
+    );
+  }
+
+  async registerApplication(dto: CreatePublicApiApplicationDto) {
+    const tenantId = await this.resolveTenantId(dto.tenantId);
+    await this.ensureApplicationUnique(tenantId, dto.code);
+    const item = await this.prisma.publicApiApplication.create({
+      data: {
+        tenantId,
+        code: dto.code,
+        name: dto.name,
+        ownerUserId: dto.ownerUserId,
+        callbackUrls: this.toJson(dto.callbackUrls ?? []),
+        status: dto.status ?? 'ACTIVE',
+        metadata: this.toJson(dto.metadata),
+        createdById: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'PUBLIC_API_APPLICATION_REGISTER',
+      entity: 'PublicApiApplication',
+      entityId: item.id,
+      payload: { tenantId, code: item.code },
+    });
+    return new PublicApiApplicationEntity(item);
+  }
+
+  async updateApplication(id: string, dto: UpdatePublicApiApplicationDto) {
+    const current = await this.ensureApplicationExists(id);
+    const tenantId =
+      dto.tenantId === undefined ? current.tenantId : await this.resolveTenantId(dto.tenantId);
+    if (dto.tenantId !== undefined || dto.code) {
+      await this.ensureApplicationUnique(tenantId, dto.code ?? current.code, id);
+    }
+    const item = await this.prisma.publicApiApplication.update({
+      where: { id },
+      data: {
+        tenantId,
+        code: dto.code,
+        name: dto.name,
+        ownerUserId: dto.ownerUserId,
+        callbackUrls:
+          dto.callbackUrls === undefined ? undefined : this.toJson(dto.callbackUrls),
+        status: dto.status,
+        metadata: dto.metadata === undefined ? undefined : this.toJson(dto.metadata),
+        updatedById: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'PUBLIC_API_APPLICATION_UPDATE',
+      entity: 'PublicApiApplication',
+      entityId: item.id,
+      payload: { before: current, after: item } as Prisma.InputJsonObject,
+    });
+    return new PublicApiApplicationEntity(item);
+  }
+
+  async removeApplication(id: string) {
+    const result = await this.softDelete.softDelete(
+      this.prisma.publicApiApplication as never,
+      id,
+    );
+    await this.audit.record({
+      action: 'PUBLIC_API_APPLICATION_DELETE',
+      entity: 'PublicApiApplication',
+      entityId: id,
+      payload: { deleted: true },
+    });
+    return {
+      success: true,
+      deletedApplication: new PublicApiApplicationEntity(
+        result.record as Partial<PublicApiApplicationEntity>,
+      ),
+    };
+  }
+
+  async generateApplicationKey(
+    applicationId: string,
+    dto: Omit<CreatePublicApiKeyDto, 'applicationId'>,
+  ) {
+    const application = await this.ensureApplicationExists(applicationId);
+    return this.createKey({
+      ...dto,
+      tenantId: dto.tenantId ?? application.tenantId ?? undefined,
+      applicationId,
+    });
+  }
+
+  async revokeApplicationKey(applicationId: string, keyId: string) {
+    await this.ensureApplicationExists(applicationId);
+    const key = await this.prisma.publicApiKey.findFirst({
+      where: this.softDelete.activeWhere({ applicationId, keyId }),
+    });
+    if (!key) throw new NotFoundException('Public API key not found');
+    return this.revokeKey(key.id);
+  }
+
+  async getApplicationUsage(applicationId: string) {
+    await this.ensureApplicationExists(applicationId);
+    const [activeKeys, revokedKeys, counters] = await this.prisma.$transaction([
+      this.prisma.publicApiKey.count({
+        where: this.softDelete.activeWhere({ applicationId, status: 'ACTIVE' }),
+      }),
+      this.prisma.publicApiKey.count({
+        where: this.softDelete.activeWhere({ applicationId, status: 'REVOKED' }),
+      }),
+      this.prisma.publicApiUsageCounter.findMany({
+        where: { applicationId },
+        select: { requestCount: true },
+      }),
+    ]);
+    return new PublicApiApplicationUsageEntity({
+      applicationId,
+      activeKeys,
+      revokedKeys,
+      totalRequests: counters.reduce((sum, item) => sum + item.requestCount, 0),
+    });
+  }
+
   private async resolveTenantId(tenantId?: string | null): Promise<string | null> {
     const resolved = tenantId ?? this.context.getTenantId();
     if (!resolved) return null;
@@ -731,6 +887,17 @@ export class PublicApiService {
     });
     if (!item) throw new NotFoundException('Public API application not found');
     return item;
+  }
+
+  private async ensureApplicationUnique(
+    tenantId: string | null,
+    code: string,
+    excludeId?: string,
+  ) {
+    const item = await this.prisma.publicApiApplication.findFirst({
+      where: { tenantId, code, ...(excludeId ? { id: { not: excludeId } } : {}) },
+    });
+    if (item) throw new ConflictException('Public API application already exists');
   }
 
   private async ensureKeyExists(id: string) {

@@ -13,6 +13,11 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Permission, Permissions } from '../common/decorators/permissions.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import {
+  CreatePublicApiApplicationDto,
+  PublicApiApplicationQueryDto,
+  UpdatePublicApiApplicationDto,
+} from './dto/public-api-applications.dto';
+import {
   CreatePublicApiKeyDto,
   PublicApiKeyQueryDto,
   RotatePublicApiKeyDto,
@@ -209,5 +214,67 @@ export class PublicApiController {
   @ApiOperation({ summary: 'Get public API usage counters' })
   findUsageCounters(@Query() query: PublicApiRateLimitQueryDto) {
     return this.service.findUsageCounters(query);
+  }
+
+  @Get('developer/applications')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PUBLIC_API_READ)
+  @ApiOperation({ summary: 'Get developer applications' })
+  findApplications(@Query() query: PublicApiApplicationQueryDto) {
+    return this.service.findApplications(query);
+  }
+
+  @Post('developer/applications')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PUBLIC_API_CREATE)
+  @ApiOperation({ summary: 'Register developer application' })
+  registerApplication(@Body() dto: CreatePublicApiApplicationDto) {
+    return this.service.registerApplication(dto);
+  }
+
+  @Patch('developer/applications/:id')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PUBLIC_API_UPDATE)
+  @ApiOperation({ summary: 'Update developer application' })
+  updateApplication(
+    @Param('id') id: string,
+    @Body() dto: UpdatePublicApiApplicationDto,
+  ) {
+    return this.service.updateApplication(id, dto);
+  }
+
+  @Delete('developer/applications/:id')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PUBLIC_API_DELETE)
+  @ApiOperation({ summary: 'Soft delete developer application' })
+  removeApplication(@Param('id') id: string) {
+    return this.service.removeApplication(id);
+  }
+
+  @Post('developer/applications/:id/keys')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PUBLIC_API_KEYS)
+  @ApiOperation({ summary: 'Generate developer application key' })
+  generateApplicationKey(
+    @Param('id') id: string,
+    @Body() dto: CreatePublicApiKeyDto,
+  ) {
+    return this.service.generateApplicationKey(id, dto);
+  }
+
+  @Post('developer/applications/:id/keys/:keyId/revoke')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PUBLIC_API_KEYS)
+  @ApiOperation({ summary: 'Revoke developer application key' })
+  revokeApplicationKey(@Param('id') id: string, @Param('keyId') keyId: string) {
+    return this.service.revokeApplicationKey(id, keyId);
+  }
+
+  @Get('developer/applications/:id/usage')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PUBLIC_API_READ)
+  @ApiOperation({ summary: 'Get developer application usage statistics' })
+  getApplicationUsage(@Param('id') id: string) {
+    return this.service.getApplicationUsage(id);
   }
 }
