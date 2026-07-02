@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 
 import { AuthModule } from '../auth/auth.module';
+import { getJwtSecret, JWT_MOBILE_TOKEN_EXPIRES_IN } from '../auth/jwt.config';
 import { MobileController } from './mobile.controller';
 import { MobileService } from './mobile.service';
 
@@ -9,9 +10,9 @@ import { MobileService } from './mobile.service';
   imports: [
     AuthModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'flexisys_super_secret_key',
+      secret: getJwtSecret(),
       signOptions: {
-        expiresIn: '12h',
+        expiresIn: JWT_MOBILE_TOKEN_EXPIRES_IN,
       },
     }),
   ],

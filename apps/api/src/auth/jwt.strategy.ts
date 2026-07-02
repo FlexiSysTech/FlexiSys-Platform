@@ -4,6 +4,7 @@ import { UserStatus } from '@prisma/client';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { getJwtSecret } from './jwt.config';
 
 export interface JwtPayload {
   sub: string;
@@ -18,8 +19,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey:
-        process.env.JWT_SECRET || 'flexisys_super_secret_key',
+      secretOrKey: getJwtSecret(),
     });
   }
 

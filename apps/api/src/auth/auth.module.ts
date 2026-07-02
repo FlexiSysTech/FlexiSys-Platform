@@ -4,15 +4,16 @@ import { JwtModule } from '@nestjs/jwt';
 
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { getJwtSecret, JWT_ACCESS_TOKEN_EXPIRES_IN } from './jwt.config';
 import { JwtStrategy } from './jwt.strategy';
 import { JwtAuthGuard } from './jwt-auth.guard';
 
 @Module({
   imports: [
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'flexisys_super_secret_key',
+      secret: getJwtSecret(),
       signOptions: {
-        expiresIn: '1d',
+        expiresIn: JWT_ACCESS_TOKEN_EXPIRES_IN,
       },
     }),
   ],

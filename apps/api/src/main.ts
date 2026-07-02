@@ -1,11 +1,12 @@
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const logger = new Logger('Bootstrap');
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -25,15 +26,12 @@ async function bootstrap() {
 
   SwaggerModule.setup('api', app, document);
 
-  await app.listen(process.env.PORT ?? 3001);
+  const port = process.env.PORT ?? 3001;
 
-  console.log(
-    `🚀 API Running: http://localhost:${process.env.PORT ?? 3001}`,
-  );
+  await app.listen(port);
 
-  console.log(
-    `📚 Swagger: http://localhost:${process.env.PORT ?? 3001}/api`,
-  );
+  logger.log(`API running: http://localhost:${port}`);
+  logger.log(`Swagger: http://localhost:${port}/api`);
 }
 
 bootstrap();
