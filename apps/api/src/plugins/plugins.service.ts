@@ -7,7 +7,7 @@ import {
 import {
   PluginLifecycleAction,
   PluginLifecycleState,
-  PluginPermissionGrant,
+  PluginInstallationStatus,
   PluginStatus,
   Prisma,
 } from '@prisma/client';
@@ -27,6 +27,15 @@ import {
   UpdatePluginManifestDto,
 } from './dto/plugin-core.dto';
 import {
+  CreatePluginMarketplacePackageDto,
+  CreatePluginMarketplaceVersionDto,
+  InstallPluginMarketplaceVersionDto,
+  PluginMarketplaceQueryDto,
+  UpdatePluginMarketplacePackageDto,
+  UpdatePluginMarketplaceVersionDto,
+  UpgradePluginInstallationDto,
+} from './dto/plugin-marketplace.dto';
+import {
   CreatePluginConfigurationDto,
   CreatePluginEventSubscriptionDto,
   CreatePluginHookDto,
@@ -44,6 +53,11 @@ import {
   PluginManifestEntity,
   PluginRegistryEntryEntity,
 } from './entities/plugin-core.entity';
+import {
+  PluginInstallationEntity,
+  PluginMarketplacePackageEntity,
+  PluginMarketplaceVersionEntity,
+} from './entities/plugin-marketplace.entity';
 import {
   PluginConfigurationEntity,
   PluginEventEntity,
@@ -774,6 +788,325 @@ export class PluginsService {
     );
   }
 
+  async findMarketplacePackages(query: PluginMarketplaceQueryDto) {
+    const companyId = query.companyId ?? this.context.getCompanyId();
+    const normalized = this.pagination.normalize(query);
+    const where: Prisma.PluginMarketplacePackageWhereInput =
+      this.softDelete.activeWhere({
+        ...(companyId ? { companyId } : {}),
+        ...(query.status ? { status: query.status } : {}),
+        ...(normalized.search
+          ? {
+              OR: [
+                { packageKey: { contains: normalized.search, mode: 'insensitive' } },
+                { name: { contains: normalized.search, mode: 'insensitive' } },
+                { publisher: { contains: normalized.search, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      });
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.pluginMarketplacePackage.findMany({
+        where,
+        orderBy: { packageKey: 'asc' },
+        ...this.pagination.getSkipTake(query),
+      }),
+      this.prisma.pluginMarketplacePackage.count({ where }),
+    ]);
+    return this.pagination.buildResponse(
+      items.map((item) => new PluginMarketplacePackageEntity(item)),
+      total,
+      query,
+    );
+  }
+
+  async createMarketplacePackage(dto: CreatePluginMarketplacePackageDto) {
+    const companyId = await this.resolveCompanyId(dto.companyId);
+    await this.ensureMarketplacePackageUnique(companyId, dto.packageKey);
+    const item = await this.prisma.pluginMarketplacePackage.create({
+      data: {
+        companyId,
+        packageKey: dto.packageKey,
+        name: dto.name,
+        publisher: dto.publisher,
+        summary: dto.summary,
+        websiteUrl: dto.websiteUrl,
+        status: dto.status ?? 'DRAFT',
+        metadata: this.toJson(dto.metadata),
+        createdById: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'PLUGIN_MARKETPLACE_PACKAGE_CREATE',
+      entity: 'PluginMarketplacePackage',
+      entityId: item.id,
+      payload: { packageKey: item.packageKey, companyId },
+    });
+    return new PluginMarketplacePackageEntity(item);
+  }
+
+  async updateMarketplacePackage(
+    id: string,
+    dto: UpdatePluginMarketplacePackageDto,
+  ) {
+    const current = await this.ensureMarketplacePackageExists(id);
+    const companyId = dto.companyId
+      ? await this.resolveCompanyId(dto.companyId)
+      : current.companyId;
+    if (dto.companyId || dto.packageKey) {
+      await this.ensureMarketplacePackageUnique(
+        companyId,
+        dto.packageKey ?? current.packageKey,
+        id,
+      );
+    }
+    const item = await this.prisma.pluginMarketplacePackage.update({
+      where: { id },
+      data: {
+        companyId,
+        packageKey: dto.packageKey,
+        name: dto.name,
+        publisher: dto.publisher,
+        summary: dto.summary,
+        websiteUrl: dto.websiteUrl,
+        status: dto.status,
+        metadata: dto.metadata === undefined ? undefined : this.toJson(dto.metadata),
+        updatedById: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'PLUGIN_MARKETPLACE_PACKAGE_UPDATE',
+      entity: 'PluginMarketplacePackage',
+      entityId: item.id,
+      payload: { before: current, after: item } as Prisma.InputJsonObject,
+    });
+    return new PluginMarketplacePackageEntity(item);
+  }
+
+  async findMarketplaceVersions(query: PluginMarketplaceQueryDto) {
+    const where: Prisma.PluginMarketplaceVersionWhereInput = {
+      ...(query.packageId ? { packageId: query.packageId } : {}),
+      ...(query.status ? { status: query.status } : {}),
+    };
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.pluginMarketplaceVersion.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        ...this.pagination.getSkipTake(query),
+      }),
+      this.prisma.pluginMarketplaceVersion.count({ where }),
+    ]);
+    return this.pagination.buildResponse(
+      items.map((item) => new PluginMarketplaceVersionEntity(item)),
+      total,
+      query,
+    );
+  }
+
+  async createMarketplaceVersion(dto: CreatePluginMarketplaceVersionDto) {
+    await this.ensureMarketplacePackageExists(dto.packageId);
+    if (dto.manifestId) await this.ensureManifestExists(dto.manifestId);
+    await this.ensureMarketplaceVersionUnique(dto.packageId, dto.version);
+    const item = await this.prisma.pluginMarketplaceVersion.create({
+      data: {
+        packageId: dto.packageId,
+        manifestId: dto.manifestId,
+        version: dto.version,
+        releaseNotes: dto.releaseNotes,
+        compatibility: this.toJson(dto.compatibility),
+        checksum: dto.checksum,
+        status: dto.status ?? 'DRAFT',
+        createdById: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'PLUGIN_MARKETPLACE_VERSION_CREATE',
+      entity: 'PluginMarketplaceVersion',
+      entityId: item.id,
+      payload: { packageId: item.packageId, version: item.version },
+    });
+    return new PluginMarketplaceVersionEntity(item);
+  }
+
+  async updateMarketplaceVersion(
+    id: string,
+    dto: UpdatePluginMarketplaceVersionDto,
+  ) {
+    const current = await this.ensureMarketplaceVersionExists(id);
+    if (dto.packageId) await this.ensureMarketplacePackageExists(dto.packageId);
+    if (dto.manifestId) await this.ensureManifestExists(dto.manifestId);
+    if (dto.packageId || dto.version) {
+      await this.ensureMarketplaceVersionUnique(
+        dto.packageId ?? current.packageId,
+        dto.version ?? current.version,
+        id,
+      );
+    }
+    const item = await this.prisma.pluginMarketplaceVersion.update({
+      where: { id },
+      data: {
+        packageId: dto.packageId,
+        manifestId: dto.manifestId,
+        version: dto.version,
+        releaseNotes: dto.releaseNotes,
+        compatibility:
+          dto.compatibility === undefined
+            ? undefined
+            : this.toJson(dto.compatibility),
+        checksum: dto.checksum,
+        status: dto.status,
+        updatedById: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'PLUGIN_MARKETPLACE_VERSION_UPDATE',
+      entity: 'PluginMarketplaceVersion',
+      entityId: item.id,
+      payload: { before: current, after: item } as Prisma.InputJsonObject,
+    });
+    return new PluginMarketplaceVersionEntity(item);
+  }
+
+  async installMarketplaceVersion(
+    versionId: string,
+    dto: InstallPluginMarketplaceVersionDto,
+  ) {
+    const version = await this.ensureMarketplaceVersionExists(versionId);
+    if (!version.manifestId) {
+      throw new BadRequestException('Marketplace version is not linked to a manifest');
+    }
+    if (version.status !== 'ACTIVE') {
+      throw new BadRequestException('Only active marketplace versions can be installed');
+    }
+    const manifest = await this.ensureManifestExists(version.manifestId);
+    const companyId = await this.resolveCompanyId(dto.companyId ?? manifest.companyId);
+    const registryEntry = await this.getOrCreateRegistryEntry(
+      companyId,
+      version.manifestId,
+      dto.config,
+    );
+    const item = await this.prisma.pluginInstallation.create({
+      data: {
+        companyId,
+        packageVersionId: versionId,
+        registryEntryId: registryEntry.id,
+        status: 'INSTALLED',
+        config: this.toJson(dto.config),
+        createdById: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'PLUGIN_MARKETPLACE_INSTALL',
+      entity: 'PluginInstallation',
+      entityId: item.id,
+      payload: { versionId, registryEntryId: registryEntry.id },
+    });
+    return new PluginInstallationEntity(item);
+  }
+
+  async findInstallations(query: PluginMarketplaceQueryDto) {
+    const companyId = query.companyId ?? this.context.getCompanyId();
+    const where: Prisma.PluginInstallationWhereInput = {
+      ...(companyId ? { companyId } : {}),
+      ...(query.installationStatus ? { status: query.installationStatus } : {}),
+    };
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.pluginInstallation.findMany({
+        where,
+        orderBy: { installedAt: 'desc' },
+        ...this.pagination.getSkipTake(query),
+      }),
+      this.prisma.pluginInstallation.count({ where }),
+    ]);
+    return this.pagination.buildResponse(
+      items.map((item) => new PluginInstallationEntity(item)),
+      total,
+      query,
+    );
+  }
+
+  async enableInstallation(id: string) {
+    const installation = await this.ensureInstallationExists(id);
+    if (installation.registryEntryId) {
+      await this.enableRegistryEntry(installation.registryEntryId);
+    }
+    const item = await this.prisma.pluginInstallation.update({
+      where: { id },
+      data: {
+        status: 'ENABLED',
+        enabledAt: new Date(),
+        disabledAt: null,
+        updatedById: this.context.getUserId(),
+      },
+    });
+    return new PluginInstallationEntity(item);
+  }
+
+  async disableInstallation(id: string) {
+    const installation = await this.ensureInstallationExists(id);
+    if (installation.registryEntryId) {
+      await this.disableRegistryEntry(installation.registryEntryId);
+    }
+    const item = await this.prisma.pluginInstallation.update({
+      where: { id },
+      data: {
+        status: 'DISABLED',
+        disabledAt: new Date(),
+        updatedById: this.context.getUserId(),
+      },
+    });
+    return new PluginInstallationEntity(item);
+  }
+
+  async uninstallInstallation(id: string) {
+    const installation = await this.ensureInstallationExists(id);
+    if (installation.registryEntryId) {
+      await this.unloadRegistryEntry(installation.registryEntryId);
+    }
+    const item = await this.prisma.pluginInstallation.update({
+      where: { id },
+      data: {
+        status: 'UNINSTALLED',
+        uninstalledAt: new Date(),
+        updatedById: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'PLUGIN_MARKETPLACE_UNINSTALL',
+      entity: 'PluginInstallation',
+      entityId: id,
+      payload: { status: item.status },
+    });
+    return new PluginInstallationEntity(item);
+  }
+
+  async upgradeInstallation(id: string, dto: UpgradePluginInstallationDto) {
+    const current = await this.ensureInstallationExists(id);
+    const target = await this.installMarketplaceVersion(dto.targetVersionId, {
+      companyId: current.companyId ?? undefined,
+      config: dto.config,
+    });
+    const item = await this.prisma.pluginInstallation.update({
+      where: { id },
+      data: {
+        status: 'UPGRADED',
+        upgradedFromId: current.upgradedFromId,
+        updatedById: this.context.getUserId(),
+      },
+    });
+    await this.prisma.pluginInstallation.update({
+      where: { id: target.id },
+      data: { upgradedFromId: item.id },
+    });
+    await this.audit.record({
+      action: 'PLUGIN_MARKETPLACE_UPGRADE',
+      entity: 'PluginInstallation',
+      entityId: target.id,
+      payload: { fromInstallationId: id, targetVersionId: dto.targetVersionId },
+    });
+    return target;
+  }
+
   private async transitionRegistryEntry(
     id: string,
     action: PluginLifecycleAction,
@@ -932,6 +1265,81 @@ export class PluginsService {
     });
     if (!item) throw new NotFoundException('Plugin configuration not found');
     return item;
+  }
+
+  private async ensureMarketplacePackageExists(id: string) {
+    const item = await this.prisma.pluginMarketplacePackage.findFirst({
+      where: this.softDelete.activeWhere({ id }),
+    });
+    if (!item) throw new NotFoundException('Plugin marketplace package not found');
+    return item;
+  }
+
+  private async ensureMarketplaceVersionExists(id: string) {
+    const item = await this.prisma.pluginMarketplaceVersion.findUnique({
+      where: { id },
+    });
+    if (!item) throw new NotFoundException('Plugin marketplace version not found');
+    return item;
+  }
+
+  private async ensureInstallationExists(id: string) {
+    const item = await this.prisma.pluginInstallation.findUnique({ where: { id } });
+    if (!item) throw new NotFoundException('Plugin installation not found');
+    return item;
+  }
+
+  private async ensureMarketplacePackageUnique(
+    companyId: string | null,
+    packageKey: string,
+    excludeId?: string,
+  ) {
+    const item = await this.prisma.pluginMarketplacePackage.findFirst({
+      where: {
+        companyId,
+        packageKey,
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
+    });
+    if (item) throw new ConflictException('Plugin marketplace package already exists');
+  }
+
+  private async ensureMarketplaceVersionUnique(
+    packageId: string,
+    version: string,
+    excludeId?: string,
+  ) {
+    const item = await this.prisma.pluginMarketplaceVersion.findFirst({
+      where: {
+        packageId,
+        version,
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
+    });
+    if (item) throw new ConflictException('Plugin marketplace version already exists');
+  }
+
+  private async getOrCreateRegistryEntry(
+    companyId: string | null,
+    manifestId: string,
+    config?: Record<string, unknown>,
+  ) {
+    const existing = await this.prisma.pluginRegistryEntry.findFirst({
+      where: this.softDelete.activeWhere({ companyId, manifestId }),
+    });
+    if (existing) return existing;
+
+    return this.prisma.pluginRegistryEntry.create({
+      data: {
+        companyId,
+        manifestId,
+        status: 'ACTIVE',
+        lifecycle: 'LOADED',
+        loadedAt: new Date(),
+        config: this.toJson(config),
+        createdById: this.context.getUserId(),
+      },
+    });
   }
 
   private assertKnownPermission(permissionCode: string) {

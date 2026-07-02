@@ -19,6 +19,15 @@ import {
   UpdatePluginManifestDto,
 } from './dto/plugin-core.dto';
 import {
+  CreatePluginMarketplacePackageDto,
+  CreatePluginMarketplaceVersionDto,
+  InstallPluginMarketplaceVersionDto,
+  PluginMarketplaceQueryDto,
+  UpdatePluginMarketplacePackageDto,
+  UpdatePluginMarketplaceVersionDto,
+  UpgradePluginInstallationDto,
+} from './dto/plugin-marketplace.dto';
+import {
   CreatePluginConfigurationDto,
   CreatePluginEventSubscriptionDto,
   CreatePluginHookDto,
@@ -302,5 +311,113 @@ export class PluginsController {
   @ApiOperation({ summary: 'Get plugin SDK event history' })
   findEvents(@Query() query: PluginSdkQueryDto) {
     return this.service.findEvents(query);
+  }
+
+  @Get('marketplace/packages')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PLUGINS_READ)
+  @ApiOperation({ summary: 'Get marketplace packages' })
+  findMarketplacePackages(@Query() query: PluginMarketplaceQueryDto) {
+    return this.service.findMarketplacePackages(query);
+  }
+
+  @Post('marketplace/packages')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PLUGINS_CREATE)
+  @ApiOperation({ summary: 'Create marketplace package' })
+  createMarketplacePackage(@Body() dto: CreatePluginMarketplacePackageDto) {
+    return this.service.createMarketplacePackage(dto);
+  }
+
+  @Patch('marketplace/packages/:id')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PLUGINS_UPDATE)
+  @ApiOperation({ summary: 'Update marketplace package' })
+  updateMarketplacePackage(
+    @Param('id') id: string,
+    @Body() dto: UpdatePluginMarketplacePackageDto,
+  ) {
+    return this.service.updateMarketplacePackage(id, dto);
+  }
+
+  @Get('marketplace/versions')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PLUGINS_READ)
+  @ApiOperation({ summary: 'Get marketplace package versions' })
+  findMarketplaceVersions(@Query() query: PluginMarketplaceQueryDto) {
+    return this.service.findMarketplaceVersions(query);
+  }
+
+  @Post('marketplace/versions')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PLUGINS_CREATE)
+  @ApiOperation({ summary: 'Create marketplace package version' })
+  createMarketplaceVersion(@Body() dto: CreatePluginMarketplaceVersionDto) {
+    return this.service.createMarketplaceVersion(dto);
+  }
+
+  @Patch('marketplace/versions/:id')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PLUGINS_UPDATE)
+  @ApiOperation({ summary: 'Update marketplace package version' })
+  updateMarketplaceVersion(
+    @Param('id') id: string,
+    @Body() dto: UpdatePluginMarketplaceVersionDto,
+  ) {
+    return this.service.updateMarketplaceVersion(id, dto);
+  }
+
+  @Post('marketplace/versions/:id/install')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PLUGINS_EXECUTE)
+  @ApiOperation({ summary: 'Install marketplace package version' })
+  installMarketplaceVersion(
+    @Param('id') id: string,
+    @Body() dto: InstallPluginMarketplaceVersionDto,
+  ) {
+    return this.service.installMarketplaceVersion(id, dto);
+  }
+
+  @Get('marketplace/installations')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PLUGINS_READ)
+  @ApiOperation({ summary: 'Get plugin installations' })
+  findInstallations(@Query() query: PluginMarketplaceQueryDto) {
+    return this.service.findInstallations(query);
+  }
+
+  @Post('marketplace/installations/:id/enable')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PLUGINS_EXECUTE)
+  @ApiOperation({ summary: 'Enable plugin installation' })
+  enableInstallation(@Param('id') id: string) {
+    return this.service.enableInstallation(id);
+  }
+
+  @Post('marketplace/installations/:id/disable')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PLUGINS_EXECUTE)
+  @ApiOperation({ summary: 'Disable plugin installation' })
+  disableInstallation(@Param('id') id: string) {
+    return this.service.disableInstallation(id);
+  }
+
+  @Post('marketplace/installations/:id/uninstall')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PLUGINS_DELETE)
+  @ApiOperation({ summary: 'Uninstall plugin installation' })
+  uninstallInstallation(@Param('id') id: string) {
+    return this.service.uninstallInstallation(id);
+  }
+
+  @Post('marketplace/installations/:id/upgrade')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PLUGINS_EXECUTE)
+  @ApiOperation({ summary: 'Upgrade plugin installation' })
+  upgradeInstallation(
+    @Param('id') id: string,
+    @Body() dto: UpgradePluginInstallationDto,
+  ) {
+    return this.service.upgradeInstallation(id, dto);
   }
 }

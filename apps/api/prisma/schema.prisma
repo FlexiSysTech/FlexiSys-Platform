@@ -412,6 +412,14 @@ enum PluginEventStatus {
   FAILED
 }
 
+enum PluginInstallationStatus {
+  INSTALLED
+  ENABLED
+  DISABLED
+  UPGRADED
+  UNINSTALLED
+}
+
 enum RecruitmentStatus {
   ACTIVE
   INACTIVE
@@ -730,6 +738,8 @@ model Company {
   integrationHealthSnapshots IntegrationHealthSnapshot[]
   pluginManifests            PluginManifest[]
   pluginRegistryEntries      PluginRegistryEntry[]
+  pluginMarketplacePackages  PluginMarketplacePackage[]
+  pluginInstallations        PluginInstallation[]
 
   @@index([status])
 }
@@ -2676,8 +2686,9 @@ model PluginManifest {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
-  company         Company?              @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  registryEntries PluginRegistryEntry[]
+  company             Company?                   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  registryEntries     PluginRegistryEntry[]
+  marketplaceVersions PluginMarketplaceVersion[]
 
   @@unique([companyId, pluginKey, version])
   @@index([companyId])
@@ -2715,6 +2726,7 @@ model PluginRegistryEntry {
   permissionGrants   PluginPermissionGrant[]
   configurations     PluginConfiguration[]
   events             PluginEvent[]
+  installations      PluginInstallation[]
 
   @@unique([companyId, manifestId])
   @@index([companyId])
@@ -2742,6 +2754,91 @@ model PluginLifecycleEvent {
   @@index([action])
   @@index([success])
   @@index([createdAt])
+}
+
+model PluginMarketplacePackage {
+  id          String       @id @default(cuid())
+  companyId   String?
+  packageKey  String
+  name        String
+  publisher   String?
+  summary     String?
+  websiteUrl  String?
+  status      PluginStatus @default(DRAFT)
+  metadata    Json?
+  deletedAt   DateTime?
+  deletedById String?
+  createdById String?
+  updatedById String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  company  Company?                   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  versions PluginMarketplaceVersion[]
+
+  @@unique([companyId, packageKey])
+  @@index([companyId])
+  @@index([packageKey])
+  @@index([publisher])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model PluginMarketplaceVersion {
+  id            String       @id @default(cuid())
+  packageId     String
+  manifestId    String?
+  version       String
+  releaseNotes  String?
+  compatibility Json?
+  checksum      String?
+  status        PluginStatus @default(DRAFT)
+  metadata      Json?
+  createdById   String?
+  updatedById   String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  package       PluginMarketplacePackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  manifest      PluginManifest?          @relation(fields: [manifestId], references: [id], onDelete: SetNull)
+  installations PluginInstallation[]
+
+  @@unique([packageId, version])
+  @@index([packageId])
+  @@index([manifestId])
+  @@index([version])
+  @@index([status])
+}
+
+model PluginInstallation {
+  id               String                   @id @default(cuid())
+  companyId        String?
+  packageVersionId String
+  registryEntryId  String?
+  status           PluginInstallationStatus @default(INSTALLED)
+  installedAt      DateTime                 @default(now())
+  enabledAt        DateTime?
+  disabledAt       DateTime?
+  uninstalledAt    DateTime?
+  upgradedFromId   String?
+  config           Json?
+  createdById      String?
+  updatedById      String?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  company        Company?                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  packageVersion PluginMarketplaceVersion @relation(fields: [packageVersionId], references: [id], onDelete: Cascade)
+  registryEntry  PluginRegistryEntry?     @relation(fields: [registryEntryId], references: [id], onDelete: SetNull)
+  upgradedFrom   PluginInstallation?      @relation("PluginInstallationUpgrade", fields: [upgradedFromId], references: [id], onDelete: SetNull)
+  upgrades       PluginInstallation[]     @relation("PluginInstallationUpgrade")
+
+  @@index([companyId])
+  @@index([packageVersionId])
+  @@index([registryEntryId])
+  @@index([status])
+  @@index([installedAt])
+  @@index([upgradedFromId])
 }
 
 model PluginEventSubscription {
