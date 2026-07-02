@@ -396,6 +396,38 @@ export class IntegrationsController {
     return this.service.enqueueOutboundJob(dto);
   }
 
+  @Post('outbound-jobs/process-due')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_EXECUTE)
+  @ApiOperation({ summary: 'Process due outbound integration jobs' })
+  processDueOutboundJobs(@Query('limit') limit?: string) {
+    return this.service.processDueOutboundJobs(limit ? Number(limit) : undefined);
+  }
+
+  @Post('outbound-jobs/:id/execute')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_EXECUTE)
+  @ApiOperation({ summary: 'Execute outbound integration job' })
+  executeOutboundJob(@Param('id') id: string) {
+    return this.service.executeOutboundJob(id);
+  }
+
+  @Post('outbound-jobs/:id/retry')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_EXECUTE)
+  @ApiOperation({ summary: 'Retry failed outbound integration job' })
+  retryOutboundJob(@Param('id') id: string) {
+    return this.service.retryOutboundJob(id);
+  }
+
+  @Post('outbound-jobs/:id/cancel')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_UPDATE)
+  @ApiOperation({ summary: 'Cancel outbound integration job' })
+  cancelOutboundJob(@Param('id') id: string) {
+    return this.service.cancelOutboundJob(id);
+  }
+
   @Public()
   @Post('inbound/:connectionId/webhook')
   @ApiOperation({ summary: 'Receive inbound integration webhook' })

@@ -1129,6 +1129,191 @@ export class IntegrationsService {
     );
   }
 
+  async executeOutboundJob(id: string) {
+    const job = await this.ensureOutboundJobExists(id);
+    if (job.status === IntegrationOutboundStatus.DELIVERED) {
+      throw new BadRequestException('Outbound job has already been delivered');
+    }
+    if (job.status === IntegrationOutboundStatus.CANCELLED) {
+      throw new BadRequestException('Cancelled outbound jobs cannot be executed');
+    }
+    if (job.status === IntegrationOutboundStatus.PROCESSING) {
+      throw new BadRequestException('Outbound job is already processing');
+    }
+    if (job.attempts >= job.maxAttempts) {
+      throw new BadRequestException('Outbound job has no retry attempts remaining');
+    }
+
+    const attemptNumber = job.attempts + 1;
+    const startedAt = new Date();
+    const retryPolicy = job.retryPolicyId
+      ? await this.ensureRetryPolicyExists(job.retryPolicyId)
+      : null;
+    await this.prisma.integrationOutboundJob.update({
+      where: { id },
+      data: {
+        status: IntegrationOutboundStatus.PROCESSING,
+        attempts: attemptNumber,
+        processedAt: startedAt,
+        updatedById: this.context.getUserId(),
+      },
+    });
+
+    const dispatch = await this.dispatchOutboundJob(job);
+    const completedAt = new Date();
+    const durationMs = completedAt.getTime() - startedAt.getTime();
+    const finalStatus = dispatch.success
+      ? IntegrationOutboundStatus.DELIVERED
+      : attemptNumber >= job.maxAttempts
+        ? IntegrationOutboundStatus.FAILED
+        : IntegrationOutboundStatus.QUEUED;
+    const nextAttemptAt = dispatch.success
+      ? null
+      : finalStatus === IntegrationOutboundStatus.QUEUED
+        ? this.calculateNextAttemptAt(retryPolicy, attemptNumber)
+        : null;
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const savedJob = await tx.integrationOutboundJob.update({
+        where: { id },
+        data: {
+          status: finalStatus,
+          deliveredAt: dispatch.success ? completedAt : job.deliveredAt,
+          failedAt:
+            !dispatch.success && finalStatus === IntegrationOutboundStatus.FAILED
+              ? completedAt
+              : job.failedAt,
+          nextAttemptAt,
+          error: dispatch.success ? null : dispatch.error,
+          updatedById: this.context.getUserId(),
+        },
+      });
+
+      await tx.integrationRetryHistory.create({
+        data: {
+          outboundJobId: id,
+          attemptNumber,
+          status: finalStatus,
+          scheduledAt: nextAttemptAt,
+          error: dispatch.success ? null : dispatch.error,
+        },
+      });
+
+      await tx.integrationExecutionHistory.create({
+        data: {
+          companyId: job.companyId,
+          connectionId: job.connectionId,
+          outboundJobId: id,
+          direction: 'OUTBOUND',
+          operation: 'OUTBOUND_DISPATCH',
+          status: dispatch.success ? 'SUCCESS' : 'FAILED',
+          requestSummary: this.toJson({
+            eventType: job.eventType,
+            targetUrl: job.targetUrl,
+            httpMethod: job.httpMethod,
+          }),
+          responseSummary: this.toJson(dispatch.response),
+          error: dispatch.error,
+          startedAt,
+          completedAt,
+          durationMs,
+        },
+      });
+
+      return savedJob;
+    });
+
+    await this.audit.record({
+      action: 'INTEGRATION_OUTBOUND_JOB_EXECUTE',
+      entity: 'IntegrationOutboundJob',
+      entityId: id,
+      payload: {
+        attemptNumber,
+        status: updated.status,
+        nextAttemptAt: updated.nextAttemptAt,
+      },
+    });
+
+    return new IntegrationOutboundJobEntity(updated);
+  }
+
+  async retryOutboundJob(id: string) {
+    const job = await this.ensureOutboundJobExists(id);
+    if (job.status !== IntegrationOutboundStatus.FAILED) {
+      throw new BadRequestException('Only failed outbound jobs can be retried');
+    }
+    if (job.attempts >= job.maxAttempts) {
+      throw new BadRequestException('Outbound job has no retry attempts remaining');
+    }
+
+    const updated = await this.prisma.integrationOutboundJob.update({
+      where: { id },
+      data: {
+        status: IntegrationOutboundStatus.QUEUED,
+        nextAttemptAt: new Date(),
+        error: null,
+        failedAt: null,
+        updatedById: this.context.getUserId(),
+      },
+    });
+
+    await this.audit.record({
+      action: 'INTEGRATION_OUTBOUND_JOB_RETRY',
+      entity: 'IntegrationOutboundJob',
+      entityId: id,
+      payload: { status: updated.status, nextAttemptAt: updated.nextAttemptAt },
+    });
+
+    return new IntegrationOutboundJobEntity(updated);
+  }
+
+  async cancelOutboundJob(id: string) {
+    const job = await this.ensureOutboundJobExists(id);
+    if (job.status === IntegrationOutboundStatus.DELIVERED) {
+      throw new BadRequestException('Delivered outbound jobs cannot be cancelled');
+    }
+
+    const updated = await this.prisma.integrationOutboundJob.update({
+      where: { id },
+      data: {
+        status: IntegrationOutboundStatus.CANCELLED,
+        nextAttemptAt: null,
+        updatedById: this.context.getUserId(),
+      },
+    });
+
+    await this.audit.record({
+      action: 'INTEGRATION_OUTBOUND_JOB_CANCEL',
+      entity: 'IntegrationOutboundJob',
+      entityId: id,
+      payload: { status: updated.status },
+    });
+
+    return new IntegrationOutboundJobEntity(updated);
+  }
+
+  async processDueOutboundJobs(limit = 10) {
+    const now = new Date();
+    const jobs = await this.prisma.integrationOutboundJob.findMany({
+      where: {
+        status: { in: [IntegrationOutboundStatus.PENDING, IntegrationOutboundStatus.QUEUED] },
+        OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
+      },
+      orderBy: [{ nextAttemptAt: 'asc' }, { queuedAt: 'asc' }],
+      take: Math.min(50, Math.max(1, limit)),
+    });
+
+    const results: IntegrationOutboundJobEntity[] = [];
+    for (const job of jobs) {
+      results.push(await this.executeOutboundJob(job.id));
+    }
+
+    return {
+      processed: results.length,
+      jobs: results,
+    };
+  }
+
   async receiveInboundWebhook(
     connectionId: string,
     dto: ReceiveIntegrationWebhookDto,
@@ -1412,6 +1597,14 @@ export class IntegrationsService {
     return item;
   }
 
+  private async ensureOutboundJobExists(id: string) {
+    const item = await this.prisma.integrationOutboundJob.findUnique({
+      where: { id },
+    });
+    if (!item) throw new NotFoundException('Integration outbound job not found');
+    return item;
+  }
+
   private async ensureRetryPolicyCodeUnique(
     companyId: string | null,
     code: string,
@@ -1511,6 +1704,67 @@ export class IntegrationsService {
       httpMethod: dto.httpMethod ?? IntegrationHttpMethod.POST,
       headers: dto.headers,
     };
+  }
+
+  private async dispatchOutboundJob(job: {
+    targetUrl: string;
+    httpMethod: IntegrationHttpMethod;
+    headers: Prisma.JsonValue | null;
+    payload: Prisma.JsonValue | null;
+  }): Promise<{
+    success: boolean;
+    response?: Record<string, unknown>;
+    error?: string;
+  }> {
+    try {
+      const response = await fetch(job.targetUrl, {
+        method: job.httpMethod,
+        headers: this.normalizeHeaders(job.headers),
+        body:
+          job.httpMethod === IntegrationHttpMethod.GET
+            ? undefined
+            : JSON.stringify(job.payload ?? {}),
+        signal: AbortSignal.timeout(15000),
+      });
+
+      return {
+        success: response.ok,
+        response: {
+          status: response.status,
+          statusText: response.statusText,
+        },
+        error: response.ok
+          ? undefined
+          : `Outbound endpoint returned ${response.status}`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Outbound dispatch failed',
+      };
+    }
+  }
+
+  private calculateNextAttemptAt(
+    retryPolicy: { backoffSeconds: number; backoffMultiplier: number } | null,
+    attemptNumber: number,
+  ): Date {
+    const baseSeconds = retryPolicy?.backoffSeconds ?? 60;
+    const multiplier = retryPolicy?.backoffMultiplier ?? 1;
+    const delaySeconds =
+      baseSeconds * Math.max(1, Math.pow(multiplier, attemptNumber - 1));
+    return new Date(Date.now() + delaySeconds * 1000);
+  }
+
+  private normalizeHeaders(value: Prisma.JsonValue | null) {
+    const headers = this.asRecord(value) ?? {};
+    return Object.entries(headers).reduce<Record<string, string>>(
+      (normalized, [key, headerValue]) => {
+        normalized[key] = String(headerValue);
+        return normalized;
+      },
+      { 'Content-Type': 'application/json' },
+    );
   }
 
   private async evaluateOutboundRules(
