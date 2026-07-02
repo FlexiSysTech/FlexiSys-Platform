@@ -17,6 +17,10 @@ import {
   CreateBiDashboardDto,
   CreateBiDashboardWidgetDto,
 } from './dto/bi-dashboard.dto';
+import {
+  BiPredictionModelQueryDto,
+  CreateBiPredictionModelDto,
+} from './dto/bi-prediction.dto';
 import { BiTrendQueryDto } from './dto/bi-trend.dto';
 import {
   BiKpiQueryDto,
@@ -192,5 +196,28 @@ export class BiController {
   @ApiOperation({ summary: 'Get metric trend analysis' })
   getMetricTrend(@Param('id') id: string, @Query() query: BiTrendQueryDto) {
     return this.service.getMetricTrend(id, query);
+  }
+
+  @Get('predictions/models')
+  @Permissions(Permission.BI_PREDICT)
+  @ApiOperation({ summary: 'List BI prediction models' })
+  findPredictionModels(@Query() query: BiPredictionModelQueryDto) {
+    return this.service.findPredictionModels(query);
+  }
+
+  @Post('predictions/models')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.BI_PREDICT)
+  @ApiOperation({ summary: 'Create BI prediction model' })
+  createPredictionModel(@Body() dto: CreateBiPredictionModelDto) {
+    return this.service.createPredictionModel(dto);
+  }
+
+  @Post('predictions/models/:id/run')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.BI_PREDICT)
+  @ApiOperation({ summary: 'Run BI prediction model' })
+  runPrediction(@Param('id') id: string) {
+    return this.service.runPrediction(id);
   }
 }

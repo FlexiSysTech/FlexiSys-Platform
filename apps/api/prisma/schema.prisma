@@ -2535,10 +2535,10 @@ model BiPredictionModel {
   createdAt   DateTime              @default(now())
   updatedAt   DateTime              @updatedAt
 
-  tenant Tenant?           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  company Company?         @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branch Branch?           @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  runs   BiPredictionRun[]
+  tenant  Tenant?           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company Company?          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch  Branch?           @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  runs    BiPredictionRun[]
 
   @@unique([tenantId, companyId, code])
   @@index([tenantId])
@@ -2552,23 +2552,23 @@ model BiPredictionModel {
 }
 
 model BiPredictionRun {
-  id              String                @id @default(cuid())
-  tenantId        String?
-  companyId       String?
-  branchId        String?
-  modelId         String
-  status          BiPredictionRunStatus @default(PENDING)
+  id               String                @id @default(cuid())
+  tenantId         String?
+  companyId        String?
+  branchId         String?
+  modelId          String
+  status           BiPredictionRunStatus @default(PENDING)
   inputWindowStart DateTime?
   inputWindowEnd   DateTime?
   forecastStart    DateTime
   forecastEnd      DateTime
-  predictedValue   Decimal?             @db.Decimal(18, 4)
-  confidence       Decimal?             @db.Decimal(8, 4)
+  predictedValue   Decimal?              @db.Decimal(18, 4)
+  confidence       Decimal?              @db.Decimal(8, 4)
   result           Json?
   error            String?
-  executedAt       DateTime             @default(now())
+  executedAt       DateTime              @default(now())
   createdById      String?
-  createdAt        DateTime             @default(now())
+  createdAt        DateTime              @default(now())
 
   tenant  Tenant?           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   company Company?          @relation(fields: [companyId], references: [id], onDelete: Cascade)

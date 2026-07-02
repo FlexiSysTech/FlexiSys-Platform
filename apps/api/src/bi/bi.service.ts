@@ -651,6 +651,87 @@ export class BiService {
     );
   }
 
+  async findPredictionModels(query: BiPredictionModelQueryDto) {
+    const where: Prisma.BiPredictionModelWhereInput = this.softDelete.activeWhere({
+      ...(this.context.getTenantId() ? { tenantId: this.context.getTenantId() } : {}),
+      ...(this.context.getCompanyId() ? { companyId: this.context.getCompanyId() } : {}),
+      ...(query.status ? { status: query.status } : {}),
+    });
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.biPredictionModel.findMany({
+        where,
+        orderBy: { name: 'asc' },
+        ...this.pagination.getSkipTake(query),
+      }),
+      this.prisma.biPredictionModel.count({ where }),
+    ]);
+    return this.pagination.buildResponse(
+      items.map((item) => new BiPredictionModelEntity(item)),
+      total,
+      query,
+    );
+  }
+
+  async createPredictionModel(dto: CreateBiPredictionModelDto) {
+    const item = await this.prisma.biPredictionModel.create({
+      data: {
+        tenantId: this.context.getTenantId(),
+        companyId: this.context.getCompanyId(),
+        branchId: this.context.getBranchId(),
+        code: dto.code,
+        name: dto.name,
+        description: dto.description,
+        modelType: dto.modelType ?? 'LINEAR_TREND',
+        targetType: dto.targetType,
+        targetId: dto.targetId,
+        horizonDays: dto.horizonDays ?? 30,
+        status: dto.status ?? 'DRAFT',
+        config: dto.config === undefined ? Prisma.JsonNull : this.toJson(dto.config),
+        createdById: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'BI_PREDICTION_MODEL_CREATE',
+      entity: 'BiPredictionModel',
+      entityId: item.id,
+      payload: { code: item.code, targetType: item.targetType },
+    });
+    return new BiPredictionModelEntity(item);
+  }
+
+  async runPrediction(id: string) {
+    const model = await this.ensurePredictionModelExists(id);
+    const now = new Date();
+    const forecastEnd = new Date(now.getTime() + model.horizonDays * 24 * 60 * 60 * 1000);
+    const series = await this.loadPredictionSeries(model.targetType, model.targetId);
+    const predictedValue = this.simpleForecast(series);
+    const confidence = series.length >= 3 ? 0.75 : 0.35;
+    const item = await this.prisma.biPredictionRun.create({
+      data: {
+        tenantId: model.tenantId,
+        companyId: model.companyId,
+        branchId: model.branchId,
+        modelId: id,
+        status: 'SUCCEEDED',
+        inputWindowStart: series[0]?.timestamp,
+        inputWindowEnd: series.at(-1)?.timestamp,
+        forecastStart: now,
+        forecastEnd,
+        predictedValue,
+        confidence,
+        result: this.toJson({ points: series.length, method: model.modelType }),
+        createdById: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'BI_PREDICTION_RUN',
+      entity: 'BiPredictionRun',
+      entityId: item.id,
+      payload: { modelId: id, predictedValue, confidence },
+    });
+    return new BiPredictionRunEntity(item);
+  }
+
   private async ensureKpiExists(id: string) {
     const item = await this.prisma.biKpiDefinition.findFirst({
       where: this.softDelete.activeWhere({ id }),
@@ -681,6 +762,49 @@ export class BiService {
     });
     if (!item) throw new NotFoundException('BI dashboard not found');
     return item;
+  }
+
+  private async ensurePredictionModelExists(id: string) {
+    const item = await this.prisma.biPredictionModel.findFirst({
+      where: this.softDelete.activeWhere({ id }),
+    });
+    if (!item) throw new NotFoundException('BI prediction model not found');
+    return item;
+  }
+
+  private async loadPredictionSeries(targetType: string, targetId: string | null) {
+    if (targetType === 'KPI' && targetId) {
+      const snapshots = await this.prisma.biKpiSnapshot.findMany({
+        where: { kpiId: targetId },
+        orderBy: { periodStart: 'asc' },
+        take: 24,
+      });
+      return snapshots.map((item) => ({
+        timestamp: item.periodStart,
+        value: Number(item.value.toString()),
+      }));
+    }
+    if (targetType === 'METRIC' && targetId) {
+      const observations = await this.prisma.biMetricObservation.findMany({
+        where: { metricId: targetId },
+        orderBy: { observedAt: 'asc' },
+        take: 24,
+      });
+      return observations.map((item) => ({
+        timestamp: item.observedAt,
+        value: Number(item.value.toString()),
+      }));
+    }
+    return [];
+  }
+
+  private simpleForecast(values: Array<{ value: number }>) {
+    if (values.length === 0) return 0;
+    if (values.length === 1) return values[0].value;
+    const last = values.at(-1)?.value ?? 0;
+    const previous = values.at(-2)?.value ?? last;
+    const average = values.reduce((sum, item) => sum + item.value, 0) / values.length;
+    return Number(((last + (last - previous) + average) / 2).toFixed(4));
   }
 
   private buildTrend(
