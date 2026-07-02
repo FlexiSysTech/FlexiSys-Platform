@@ -53,6 +53,7 @@ import {
 } from './entities/integration-core.entity';
 import { IntegrationInboundEventEntity } from './entities/integration-inbound.entity';
 import {
+  IntegrationDashboardEntity,
   IntegrationExecutionHistoryEntity,
   IntegrationHealthSnapshotEntity,
   IntegrationRetryHistoryEntity,
@@ -1502,6 +1503,99 @@ export class IntegrationsService {
     });
 
     return new IntegrationHealthSnapshotEntity(item);
+  }
+
+  async getDashboard(companyId?: string) {
+    const resolvedCompanyId = companyId ?? this.context.getCompanyId();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [
+      totalProviders,
+      activeProviders,
+      totalConnections,
+      connectedConnections,
+      queuedOutboundJobs,
+      failedOutboundJobs,
+      inboundEventsToday,
+      failedExecutionsToday,
+      latestHealthSnapshots,
+    ] = await this.prisma.$transaction([
+      this.prisma.integrationProvider.count({
+        where: this.softDelete.activeWhere({
+          ...(resolvedCompanyId ? { companyId: resolvedCompanyId } : {}),
+        }),
+      }),
+      this.prisma.integrationProvider.count({
+        where: this.softDelete.activeWhere({
+          ...(resolvedCompanyId ? { companyId: resolvedCompanyId } : {}),
+          status: IntegrationStatus.ACTIVE,
+        }),
+      }),
+      this.prisma.integrationConnection.count({
+        where: this.softDelete.activeWhere({
+          ...(resolvedCompanyId ? { companyId: resolvedCompanyId } : {}),
+        }),
+      }),
+      this.prisma.integrationConnection.count({
+        where: this.softDelete.activeWhere({
+          ...(resolvedCompanyId ? { companyId: resolvedCompanyId } : {}),
+          status: IntegrationConnectionStatus.CONNECTED,
+        }),
+      }),
+      this.prisma.integrationOutboundJob.count({
+        where: {
+          ...(resolvedCompanyId ? { companyId: resolvedCompanyId } : {}),
+          status: IntegrationOutboundStatus.QUEUED,
+        },
+      }),
+      this.prisma.integrationOutboundJob.count({
+        where: {
+          ...(resolvedCompanyId ? { companyId: resolvedCompanyId } : {}),
+          status: IntegrationOutboundStatus.FAILED,
+        },
+      }),
+      this.prisma.integrationInboundEvent.count({
+        where: {
+          ...(resolvedCompanyId ? { companyId: resolvedCompanyId } : {}),
+          receivedAt: { gte: today },
+        },
+      }),
+      this.prisma.integrationExecutionHistory.count({
+        where: {
+          ...(resolvedCompanyId ? { companyId: resolvedCompanyId } : {}),
+          status: 'FAILED',
+          startedAt: { gte: today },
+        },
+      }),
+      this.prisma.integrationHealthSnapshot.findMany({
+        where: {
+          ...(resolvedCompanyId ? { companyId: resolvedCompanyId } : {}),
+          connectionId: { not: null },
+        },
+        orderBy: { checkedAt: 'desc' },
+        distinct: ['connectionId'],
+        select: { status: true },
+      }),
+    ]);
+
+    const unhealthyConnections = latestHealthSnapshots.filter(
+      (snapshot) =>
+        snapshot.status === IntegrationHealthStatus.DEGRADED ||
+        snapshot.status === IntegrationHealthStatus.DOWN,
+    ).length;
+
+    return new IntegrationDashboardEntity({
+      totalProviders,
+      activeProviders,
+      totalConnections,
+      connectedConnections,
+      queuedOutboundJobs,
+      failedOutboundJobs,
+      inboundEventsToday,
+      failedExecutionsToday,
+      unhealthyConnections,
+    });
   }
 
   private assertStatusChange(

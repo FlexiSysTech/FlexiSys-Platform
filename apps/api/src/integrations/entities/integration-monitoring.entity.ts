@@ -95,3 +95,36 @@ export class IntegrationHealthSnapshotEntity {
   @ApiProperty()
   checkedAt!: Date;
 }
+
+export class IntegrationDashboardEntity {
+  constructor(partial: Partial<IntegrationDashboardEntity>) {
+    Object.assign(this, partial);
+  }
+
+  @ApiProperty()
+  totalProviders!: number;
+
+  @ApiProperty()
+  activeProviders!: number;
+
+  @ApiProperty()
+  totalConnections!: number;
+
+  @ApiProperty()
+  connectedConnections!: number;
+
+  @ApiProperty()
+  queuedOutboundJobs!: number;
+
+  @ApiProperty()
+  failedOutboundJobs!: number;
+
+  @ApiProperty()
+  inboundEventsToday!: number;
+
+  @ApiProperty()
+  failedExecutionsToday!: number;
+
+  @ApiProperty()
+  unhealthyConnections!: number;
+}

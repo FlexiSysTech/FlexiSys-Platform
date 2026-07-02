@@ -454,6 +454,14 @@ export class IntegrationsController {
     return this.service.findExecutionHistory(query);
   }
 
+  @Get('dashboard')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_MONITOR)
+  @ApiOperation({ summary: 'Get integration monitoring dashboard' })
+  getDashboard(@Query('companyId') companyId?: string) {
+    return this.service.getDashboard(companyId);
+  }
+
   @Get('retry-history')
   @Roles('SUPER_ADMIN')
   @Permissions(Permission.INTEGRATIONS_MONITOR)
