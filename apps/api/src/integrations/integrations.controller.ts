@@ -88,6 +88,22 @@ export class IntegrationsController {
     return this.service.restoreProvider(id);
   }
 
+  @Post('providers/:id/enable')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_UPDATE)
+  @ApiOperation({ summary: 'Enable integration provider' })
+  enableProvider(@Param('id') id: string) {
+    return this.service.enableProvider(id);
+  }
+
+  @Post('providers/:id/disable')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_UPDATE)
+  @ApiOperation({ summary: 'Disable integration provider' })
+  disableProvider(@Param('id') id: string) {
+    return this.service.disableProvider(id);
+  }
+
   @Get('credentials')
   @Roles('SUPER_ADMIN')
   @Permissions(Permission.INTEGRATIONS_READ)
@@ -121,6 +137,22 @@ export class IntegrationsController {
   @ApiOperation({ summary: 'Soft delete integration credential' })
   removeCredential(@Param('id') id: string) {
     return this.service.removeCredential(id);
+  }
+
+  @Post('credentials/:id/enable')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_UPDATE)
+  @ApiOperation({ summary: 'Enable integration credential' })
+  enableCredential(@Param('id') id: string) {
+    return this.service.enableCredential(id);
+  }
+
+  @Post('credentials/:id/disable')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_UPDATE)
+  @ApiOperation({ summary: 'Disable integration credential' })
+  disableCredential(@Param('id') id: string) {
+    return this.service.disableCredential(id);
   }
 
   @Get('connections')
@@ -182,6 +214,22 @@ export class IntegrationsController {
     return this.service.disconnect(id);
   }
 
+  @Post('connections/:id/enable')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_UPDATE)
+  @ApiOperation({ summary: 'Enable integration connection' })
+  enableConnection(@Param('id') id: string) {
+    return this.service.enableConnection(id);
+  }
+
+  @Post('connections/:id/disable')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_UPDATE)
+  @ApiOperation({ summary: 'Disable integration connection' })
+  disableConnection(@Param('id') id: string) {
+    return this.service.disableConnection(id);
+  }
+
   @Get('retry-policies')
   @Roles('SUPER_ADMIN')
   @Permissions(Permission.INTEGRATIONS_READ)
@@ -217,6 +265,22 @@ export class IntegrationsController {
     return this.service.removeRetryPolicy(id);
   }
 
+  @Post('retry-policies/:id/enable')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_UPDATE)
+  @ApiOperation({ summary: 'Enable integration retry policy' })
+  enableRetryPolicy(@Param('id') id: string) {
+    return this.service.enableRetryPolicy(id);
+  }
+
+  @Post('retry-policies/:id/disable')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_UPDATE)
+  @ApiOperation({ summary: 'Disable integration retry policy' })
+  disableRetryPolicy(@Param('id') id: string) {
+    return this.service.disableRetryPolicy(id);
+  }
+
   @Get('webhooks')
   @Roles('SUPER_ADMIN')
   @Permissions(Permission.INTEGRATIONS_READ)
@@ -247,6 +311,22 @@ export class IntegrationsController {
   @ApiOperation({ summary: 'Soft delete outbound webhook' })
   removeWebhook(@Param('id') id: string) {
     return this.service.removeWebhook(id);
+  }
+
+  @Post('webhooks/:id/enable')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_UPDATE)
+  @ApiOperation({ summary: 'Enable outbound webhook' })
+  enableWebhook(@Param('id') id: string) {
+    return this.service.enableWebhook(id);
+  }
+
+  @Post('webhooks/:id/disable')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_UPDATE)
+  @ApiOperation({ summary: 'Disable outbound webhook' })
+  disableWebhook(@Param('id') id: string) {
+    return this.service.disableWebhook(id);
   }
 
   @Get('rest-connectors')
@@ -282,6 +362,22 @@ export class IntegrationsController {
   @ApiOperation({ summary: 'Soft delete REST connector' })
   removeRestConnector(@Param('id') id: string) {
     return this.service.removeRestConnector(id);
+  }
+
+  @Post('rest-connectors/:id/enable')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_UPDATE)
+  @ApiOperation({ summary: 'Enable REST connector' })
+  enableRestConnector(@Param('id') id: string) {
+    return this.service.enableRestConnector(id);
+  }
+
+  @Post('rest-connectors/:id/disable')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_UPDATE)
+  @ApiOperation({ summary: 'Disable REST connector' })
+  disableRestConnector(@Param('id') id: string) {
+    return this.service.disableRestConnector(id);
   }
 
   @Get('outbound-jobs')

@@ -69,7 +69,7 @@ import { RestIntegrationProvider } from './providers/rest-integration.provider';
 @Injectable()
 export class IntegrationsService {
   private readonly statusRules = [
-    { from: 'DRAFT' as IntegrationStatus, to: ['ACTIVE', 'ARCHIVED'] as IntegrationStatus[] },
+    { from: 'DRAFT' as IntegrationStatus, to: ['ACTIVE', 'INACTIVE', 'ARCHIVED'] as IntegrationStatus[] },
     { from: 'ACTIVE' as IntegrationStatus, to: ['INACTIVE', 'ARCHIVED'] as IntegrationStatus[] },
     { from: 'INACTIVE' as IntegrationStatus, to: ['ACTIVE', 'ARCHIVED'] as IntegrationStatus[] },
   ];
@@ -249,6 +249,14 @@ export class IntegrationsService {
     };
   }
 
+  enableProvider(id: string) {
+    return this.updateProvider(id, { status: IntegrationStatus.ACTIVE });
+  }
+
+  disableProvider(id: string) {
+    return this.updateProvider(id, { status: IntegrationStatus.INACTIVE });
+  }
+
   async findCredentials(query: IntegrationQueryDto) {
     const companyId = query.companyId ?? this.context.getCompanyId();
     const normalized = this.pagination.normalize(query);
@@ -365,6 +373,14 @@ export class IntegrationsService {
       success: true,
       deletedCredential: new IntegrationCredentialEntity(result.record),
     };
+  }
+
+  enableCredential(id: string) {
+    return this.updateCredential(id, { status: IntegrationStatus.ACTIVE });
+  }
+
+  disableCredential(id: string) {
+    return this.updateCredential(id, { status: IntegrationStatus.INACTIVE });
   }
 
   async findConnections(query: IntegrationQueryDto) {
@@ -595,6 +611,16 @@ export class IntegrationsService {
     return new IntegrationConnectionEntity(item);
   }
 
+  enableConnection(id: string) {
+    return this.updateConnection(id, {
+      status: IntegrationConnectionStatus.DISCONNECTED,
+    });
+  }
+
+  disableConnection(id: string) {
+    return this.updateConnection(id, { status: IntegrationConnectionStatus.DISABLED });
+  }
+
   async findRetryPolicies(query: IntegrationQueryDto) {
     const companyId = query.companyId ?? this.context.getCompanyId();
     const normalized = this.pagination.normalize(query);
@@ -712,6 +738,14 @@ export class IntegrationsService {
       success: true,
       deletedRetryPolicy: new IntegrationRetryPolicyEntity(result.record),
     };
+  }
+
+  enableRetryPolicy(id: string) {
+    return this.updateRetryPolicy(id, { status: IntegrationStatus.ACTIVE });
+  }
+
+  disableRetryPolicy(id: string) {
+    return this.updateRetryPolicy(id, { status: IntegrationStatus.INACTIVE });
   }
 
   async findWebhooks(query: IntegrationOutboundQueryDto) {
@@ -871,6 +905,14 @@ export class IntegrationsService {
     };
   }
 
+  enableWebhook(id: string) {
+    return this.updateWebhook(id, { status: IntegrationStatus.ACTIVE });
+  }
+
+  disableWebhook(id: string) {
+    return this.updateWebhook(id, { status: IntegrationStatus.INACTIVE });
+  }
+
   async findRestConnectors(query: IntegrationOutboundQueryDto) {
     const companyId = query.companyId ?? this.context.getCompanyId();
     const normalized = this.pagination.normalize(query);
@@ -1011,6 +1053,14 @@ export class IntegrationsService {
       success: true,
       deletedRestConnector: new IntegrationRestConnectorEntity(result.record),
     };
+  }
+
+  enableRestConnector(id: string) {
+    return this.updateRestConnector(id, { status: IntegrationStatus.ACTIVE });
+  }
+
+  disableRestConnector(id: string) {
+    return this.updateRestConnector(id, { status: IntegrationStatus.INACTIVE });
   }
 
   async enqueueOutboundJob(dto: EnqueueIntegrationOutboundJobDto) {
