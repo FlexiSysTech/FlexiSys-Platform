@@ -7,6 +7,7 @@ import {
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import {
   IntegrationConnectionStatus,
+  IntegrationHealthStatus,
   IntegrationHttpMethod,
   IntegrationOutboundStatus,
   IntegrationStatus,
@@ -33,6 +34,7 @@ import {
   IntegrationInboundQueryDto,
   ReceiveIntegrationWebhookDto,
 } from './dto/integration-inbound.dto';
+import { IntegrationMonitoringQueryDto } from './dto/integration-monitoring.dto';
 import {
   CreateIntegrationRestConnectorDto,
   CreateIntegrationRetryPolicyDto,
@@ -50,6 +52,11 @@ import {
   IntegrationProviderEntity,
 } from './entities/integration-core.entity';
 import { IntegrationInboundEventEntity } from './entities/integration-inbound.entity';
+import {
+  IntegrationExecutionHistoryEntity,
+  IntegrationHealthSnapshotEntity,
+  IntegrationRetryHistoryEntity,
+} from './entities/integration-monitoring.entity';
 import {
   IntegrationOutboundJobEntity,
   IntegrationRestConnectorEntity,
@@ -1150,6 +1157,116 @@ export class IntegrationsService {
       total,
       query,
     );
+  }
+
+  async findExecutionHistory(query: IntegrationMonitoringQueryDto) {
+    const companyId = query.companyId ?? this.context.getCompanyId();
+    const where: Prisma.IntegrationExecutionHistoryWhereInput = {
+      ...(companyId ? { companyId } : {}),
+      ...(query.connectionId ? { connectionId: query.connectionId } : {}),
+      ...(query.outboundJobId ? { outboundJobId: query.outboundJobId } : {}),
+      ...(query.inboundEventId ? { inboundEventId: query.inboundEventId } : {}),
+      ...(query.direction ? { direction: query.direction } : {}),
+      ...(query.executionStatus ? { status: query.executionStatus } : {}),
+    };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.integrationExecutionHistory.findMany({
+        where,
+        orderBy: { startedAt: 'desc' },
+        ...this.pagination.getSkipTake(query),
+      }),
+      this.prisma.integrationExecutionHistory.count({ where }),
+    ]);
+
+    return this.pagination.buildResponse(
+      items.map((item) => new IntegrationExecutionHistoryEntity(item)),
+      total,
+      query,
+    );
+  }
+
+  async findRetryHistory(query: IntegrationMonitoringQueryDto) {
+    const where: Prisma.IntegrationRetryHistoryWhereInput = {
+      ...(query.outboundJobId ? { outboundJobId: query.outboundJobId } : {}),
+      ...(query.outboundStatus ? { status: query.outboundStatus } : {}),
+    };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.integrationRetryHistory.findMany({
+        where,
+        orderBy: { attemptedAt: 'desc' },
+        ...this.pagination.getSkipTake(query),
+      }),
+      this.prisma.integrationRetryHistory.count({ where }),
+    ]);
+
+    return this.pagination.buildResponse(
+      items.map((item) => new IntegrationRetryHistoryEntity(item)),
+      total,
+      query,
+    );
+  }
+
+  async findHealthSnapshots(query: IntegrationMonitoringQueryDto) {
+    const companyId = query.companyId ?? this.context.getCompanyId();
+    const where: Prisma.IntegrationHealthSnapshotWhereInput = {
+      ...(companyId ? { companyId } : {}),
+      ...(query.connectionId ? { connectionId: query.connectionId } : {}),
+      ...(query.healthStatus ? { status: query.healthStatus } : {}),
+    };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.integrationHealthSnapshot.findMany({
+        where,
+        orderBy: { checkedAt: 'desc' },
+        ...this.pagination.getSkipTake(query),
+      }),
+      this.prisma.integrationHealthSnapshot.count({ where }),
+    ]);
+
+    return this.pagination.buildResponse(
+      items.map((item) => new IntegrationHealthSnapshotEntity(item)),
+      total,
+      query,
+    );
+  }
+
+  async checkConnectionHealth(id: string) {
+    const connection = await this.ensureConnectionExists(id);
+    const startedAt = Date.now();
+    const result = await this.testConnection(id);
+    const status = result.success
+      ? IntegrationHealthStatus.HEALTHY
+      : IntegrationHealthStatus.DOWN;
+    const item = await this.prisma.integrationHealthSnapshot.create({
+      data: {
+        companyId: connection.companyId,
+        connectionId: id,
+        status,
+        latencyMs: Date.now() - startedAt,
+        error: result.success ? null : result.message ?? 'Connection health check failed',
+      },
+    });
+
+    await this.prisma.integrationExecutionHistory.create({
+      data: {
+        companyId: connection.companyId,
+        connectionId: id,
+        direction: 'OUTBOUND',
+        operation: 'HEALTH_CHECK',
+        status: result.success ? 'SUCCESS' : 'FAILED',
+        responseSummary: this.toJson({
+          status: item.status,
+          latencyMs: item.latencyMs,
+        }),
+        error: item.error,
+        completedAt: new Date(),
+        durationMs: item.latencyMs,
+      },
+    });
+
+    return new IntegrationHealthSnapshotEntity(item);
   }
 
   private assertStatusChange(

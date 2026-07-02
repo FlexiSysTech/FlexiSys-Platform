@@ -338,6 +338,25 @@ enum IntegrationInboundStatus {
   FAILED
 }
 
+enum IntegrationDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum IntegrationExecutionStatus {
+  STARTED
+  SUCCESS
+  FAILED
+  SKIPPED
+}
+
+enum IntegrationHealthStatus {
+  HEALTHY
+  DEGRADED
+  DOWN
+  UNKNOWN
+}
+
 enum RecruitmentStatus {
   ACTIVE
   INACTIVE
@@ -609,49 +628,51 @@ model Company {
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
 
-  branches                  Branch[]
-  departments               Department[]
-  positions                 Position[]
-  costCenters               CostCenter[]
-  employees                 Employee[]
-  shifts                    Shift[]
-  holidays                  Holiday[]
-  leaveTypes                LeaveType[]
-  leaveBalances             LeaveBalance[]
-  salaryComponents          SalaryComponent[]
-  payrollPeriods            PayrollPeriod[]
-  payrollRuns               PayrollRun[]
-  accounts                  Account[]
-  journalEntries            JournalEntry[]
-  reportCategories          ReportCategory[]
-  reportDefinitions         ReportDefinition[]
-  reportExecutions          ReportExecution[]
-  jobPositions              JobPosition[]
-  vacancies                 Vacancy[]
-  performanceCycles         PerformanceCycle[]
-  assetCategories           AssetCategory[]
-  assets                    Asset[]
-  documentCategories        DocumentCategory[]
-  documents                 Document[]
-  selfServiceRequests       SelfServiceRequest[]
-  notifications             Notification[]
-  workflowDefinitions       WorkflowDefinition[]
-  businessRuleCategories    BusinessRuleCategory[]
-  businessRules             BusinessRule[]
-  businessRuleExecutions    BusinessRuleExecution[]
-  aiProviderConfigs         AiProviderConfig[]
-  aiRequestLogs             AiRequestLog[]
-  aiUsageRecords            AiUsageRecord[]
-  aiUsageLimits             AiUsageLimit[]
-  aiSafetyPolicies          AiSafetyPolicy[]
-  integrationProviders      IntegrationProvider[]
-  integrationCredentials    IntegrationCredential[]
-  integrationConnections    IntegrationConnection[]
-  integrationWebhooks       IntegrationWebhook[]
-  integrationRestConnectors IntegrationRestConnector[]
-  integrationRetryPolicies  IntegrationRetryPolicy[]
-  integrationOutboundJobs   IntegrationOutboundJob[]
-  integrationInboundEvents  IntegrationInboundEvent[]
+  branches                   Branch[]
+  departments                Department[]
+  positions                  Position[]
+  costCenters                CostCenter[]
+  employees                  Employee[]
+  shifts                     Shift[]
+  holidays                   Holiday[]
+  leaveTypes                 LeaveType[]
+  leaveBalances              LeaveBalance[]
+  salaryComponents           SalaryComponent[]
+  payrollPeriods             PayrollPeriod[]
+  payrollRuns                PayrollRun[]
+  accounts                   Account[]
+  journalEntries             JournalEntry[]
+  reportCategories           ReportCategory[]
+  reportDefinitions          ReportDefinition[]
+  reportExecutions           ReportExecution[]
+  jobPositions               JobPosition[]
+  vacancies                  Vacancy[]
+  performanceCycles          PerformanceCycle[]
+  assetCategories            AssetCategory[]
+  assets                     Asset[]
+  documentCategories         DocumentCategory[]
+  documents                  Document[]
+  selfServiceRequests        SelfServiceRequest[]
+  notifications              Notification[]
+  workflowDefinitions        WorkflowDefinition[]
+  businessRuleCategories     BusinessRuleCategory[]
+  businessRules              BusinessRule[]
+  businessRuleExecutions     BusinessRuleExecution[]
+  aiProviderConfigs          AiProviderConfig[]
+  aiRequestLogs              AiRequestLog[]
+  aiUsageRecords             AiUsageRecord[]
+  aiUsageLimits              AiUsageLimit[]
+  aiSafetyPolicies           AiSafetyPolicy[]
+  integrationProviders       IntegrationProvider[]
+  integrationCredentials     IntegrationCredential[]
+  integrationConnections     IntegrationConnection[]
+  integrationWebhooks        IntegrationWebhook[]
+  integrationRestConnectors  IntegrationRestConnector[]
+  integrationRetryPolicies   IntegrationRetryPolicy[]
+  integrationOutboundJobs    IntegrationOutboundJob[]
+  integrationInboundEvents   IntegrationInboundEvent[]
+  integrationExecutions      IntegrationExecutionHistory[]
+  integrationHealthSnapshots IntegrationHealthSnapshot[]
 
   @@index([status])
 }
@@ -2326,12 +2347,14 @@ model IntegrationConnection {
   createdAt       DateTime                    @default(now())
   updatedAt       DateTime                    @updatedAt
 
-  company        Company?                   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  provider       IntegrationProvider        @relation(fields: [providerId], references: [id], onDelete: Cascade)
-  credential     IntegrationCredential?     @relation(fields: [credentialId], references: [id], onDelete: SetNull)
-  restConnectors IntegrationRestConnector[]
-  outboundJobs   IntegrationOutboundJob[]
-  inboundEvents  IntegrationInboundEvent[]
+  company         Company?                      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  provider        IntegrationProvider           @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  credential      IntegrationCredential?        @relation(fields: [credentialId], references: [id], onDelete: SetNull)
+  restConnectors  IntegrationRestConnector[]
+  outboundJobs    IntegrationOutboundJob[]
+  inboundEvents   IntegrationInboundEvent[]
+  executions      IntegrationExecutionHistory[]
+  healthSnapshots IntegrationHealthSnapshot[]
 
   @@index([companyId])
   @@index([providerId])
@@ -2359,8 +2382,9 @@ model IntegrationInboundEvent {
   createdAt         DateTime                 @default(now())
   updatedAt         DateTime                 @updatedAt
 
-  company    Company?               @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  connection IntegrationConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  company    Company?                      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  connection IntegrationConnection?        @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  executions IntegrationExecutionHistory[]
 
   @@index([companyId])
   @@index([connectionId])
@@ -2368,6 +2392,38 @@ model IntegrationInboundEvent {
   @@index([status])
   @@index([signatureValid])
   @@index([receivedAt])
+}
+
+model IntegrationExecutionHistory {
+  id              String                     @id @default(cuid())
+  companyId       String?
+  connectionId    String?
+  outboundJobId   String?
+  inboundEventId  String?
+  direction       IntegrationDirection
+  operation       String
+  status          IntegrationExecutionStatus @default(STARTED)
+  requestSummary  Json?
+  responseSummary Json?
+  error           String?
+  startedAt       DateTime                   @default(now())
+  completedAt     DateTime?
+  durationMs      Int?
+  createdAt       DateTime                   @default(now())
+
+  company      Company?                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  connection   IntegrationConnection?   @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  outboundJob  IntegrationOutboundJob?  @relation(fields: [outboundJobId], references: [id], onDelete: SetNull)
+  inboundEvent IntegrationInboundEvent? @relation(fields: [inboundEventId], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([connectionId])
+  @@index([outboundJobId])
+  @@index([inboundEventId])
+  @@index([direction])
+  @@index([operation])
+  @@index([status])
+  @@index([startedAt])
 }
 
 model IntegrationRetryPolicy {
@@ -2486,11 +2542,13 @@ model IntegrationOutboundJob {
   createdAt       DateTime                  @default(now())
   updatedAt       DateTime                  @updatedAt
 
-  company       Company?                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  connection    IntegrationConnection?    @relation(fields: [connectionId], references: [id], onDelete: SetNull)
-  webhook       IntegrationWebhook?       @relation(fields: [webhookId], references: [id], onDelete: SetNull)
-  restConnector IntegrationRestConnector? @relation(fields: [restConnectorId], references: [id], onDelete: SetNull)
-  retryPolicy   IntegrationRetryPolicy?   @relation(fields: [retryPolicyId], references: [id], onDelete: SetNull)
+  company       Company?                      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  connection    IntegrationConnection?        @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  webhook       IntegrationWebhook?           @relation(fields: [webhookId], references: [id], onDelete: SetNull)
+  restConnector IntegrationRestConnector?     @relation(fields: [restConnectorId], references: [id], onDelete: SetNull)
+  retryPolicy   IntegrationRetryPolicy?       @relation(fields: [retryPolicyId], references: [id], onDelete: SetNull)
+  executions    IntegrationExecutionHistory[]
+  retryHistory  IntegrationRetryHistory[]
 
   @@index([companyId])
   @@index([connectionId])
@@ -2501,4 +2559,41 @@ model IntegrationOutboundJob {
   @@index([status])
   @@index([nextAttemptAt])
   @@index([queuedAt])
+}
+
+model IntegrationRetryHistory {
+  id            String                    @id @default(cuid())
+  outboundJobId String
+  attemptNumber Int
+  status        IntegrationOutboundStatus
+  scheduledAt   DateTime?
+  attemptedAt   DateTime                  @default(now())
+  error         String?
+  createdAt     DateTime                  @default(now())
+
+  outboundJob IntegrationOutboundJob @relation(fields: [outboundJobId], references: [id], onDelete: Cascade)
+
+  @@index([outboundJobId])
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([attemptedAt])
+}
+
+model IntegrationHealthSnapshot {
+  id           String                  @id @default(cuid())
+  companyId    String?
+  connectionId String?
+  status       IntegrationHealthStatus @default(UNKNOWN)
+  latencyMs    Int?
+  error        String?
+  checkedAt    DateTime                @default(now())
+  createdAt    DateTime                @default(now())
+
+  company    Company?               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  connection IntegrationConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([connectionId])
+  @@index([status])
+  @@index([checkedAt])
 }

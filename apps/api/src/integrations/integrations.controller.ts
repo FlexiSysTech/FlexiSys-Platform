@@ -26,6 +26,7 @@ import {
   IntegrationInboundQueryDto,
   ReceiveIntegrationWebhookDto,
 } from './dto/integration-inbound.dto';
+import { IntegrationMonitoringQueryDto } from './dto/integration-monitoring.dto';
 import {
   CreateIntegrationRestConnectorDto,
   CreateIntegrationRetryPolicyDto,
@@ -315,5 +316,37 @@ export class IntegrationsController {
   @ApiOperation({ summary: 'Get inbound integration events' })
   findInboundEvents(@Query() query: IntegrationInboundQueryDto) {
     return this.service.findInboundEvents(query);
+  }
+
+  @Get('executions')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_MONITOR)
+  @ApiOperation({ summary: 'Get integration execution history' })
+  findExecutionHistory(@Query() query: IntegrationMonitoringQueryDto) {
+    return this.service.findExecutionHistory(query);
+  }
+
+  @Get('retry-history')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_MONITOR)
+  @ApiOperation({ summary: 'Get integration retry history' })
+  findRetryHistory(@Query() query: IntegrationMonitoringQueryDto) {
+    return this.service.findRetryHistory(query);
+  }
+
+  @Get('health')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_MONITOR)
+  @ApiOperation({ summary: 'Get integration health snapshots' })
+  findHealthSnapshots(@Query() query: IntegrationMonitoringQueryDto) {
+    return this.service.findHealthSnapshots(query);
+  }
+
+  @Post('connections/:id/health-check')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_EXECUTE)
+  @ApiOperation({ summary: 'Run integration connection health check' })
+  checkConnectionHealth(@Param('id') id: string) {
+    return this.service.checkConnectionHealth(id);
   }
 }
