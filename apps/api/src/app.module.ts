@@ -24,6 +24,7 @@ import { PublicApiModule } from './public-api/public-api.module';
 import { RecruitmentModule } from './recruitment/recruitment.module';
 import { ReportingModule } from './reporting/reporting.module';
 import { RolesModule } from './roles/roles.module';
+import { SchedulerModule } from './scheduler/scheduler.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { UsersModule } from './users/users.module';
 import { WorkflowsModule } from './workflows/workflows.module';
@@ -56,6 +57,7 @@ import { WorkflowsModule } from './workflows/workflows.module';
     DocumentsModule,
     EssModule,
     NotificationsModule,
+    SchedulerModule,
     WorkflowsModule,
   ],
 })

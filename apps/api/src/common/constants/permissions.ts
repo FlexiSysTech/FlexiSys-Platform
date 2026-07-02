@@ -137,6 +137,13 @@ export const Permission = {
   OBSERVABILITY_UPDATE: 'observability.update',
   OBSERVABILITY_DELETE: 'observability.delete',
   OBSERVABILITY_ADMIN: 'observability.admin',
+
+  SCHEDULER_READ: 'scheduler.read',
+  SCHEDULER_CREATE: 'scheduler.create',
+  SCHEDULER_UPDATE: 'scheduler.update',
+  SCHEDULER_DELETE: 'scheduler.delete',
+  SCHEDULER_EXECUTE: 'scheduler.execute',
+  SCHEDULER_MONITOR: 'scheduler.monitor',
 } as const;
 
 export type PermissionCode = (typeof Permission)[keyof typeof Permission];

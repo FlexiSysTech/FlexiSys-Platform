@@ -577,6 +577,42 @@ enum ObservabilitySpanType {
   CUSTOM
 }
 
+enum SchedulerJobStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum SchedulerTaskType {
+  CRON
+  BACKGROUND
+  QUEUE
+}
+
+enum SchedulerPriority {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+enum SchedulerRunStatus {
+  PENDING
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  RETRY_SCHEDULED
+  DEAD_LETTER
+}
+
+enum SchedulerRetryStrategy {
+  NONE
+  FIXED
+  EXPONENTIAL
+}
+
 enum RecruitmentStatus {
   ACTIVE
   INACTIVE
@@ -946,6 +982,9 @@ model Tenant {
   observabilityLogs              ObservabilityLogEntry[]
   observabilityTraces            ObservabilityTrace[]
   observabilitySpans             ObservabilitySpan[]
+  schedulerCrons                 SchedulerCronRegistry[]
+  schedulerJobs                  SchedulerScheduledJob[]
+  schedulerJobHistories          SchedulerJobHistory[]
 
   @@index([code])
   @@index([status])
@@ -1616,6 +1655,130 @@ model ObservabilitySpan {
   @@index([status])
   @@index([startedAt])
   @@index([endedAt])
+}
+
+model SchedulerCronRegistry {
+  id                String                 @id @default(cuid())
+  tenantId          String?
+  code              String
+  name              String
+  taskName          String
+  cronExpression    String
+  timezone          String                 @default("UTC")
+  taskType          SchedulerTaskType      @default(CRON)
+  queueName         String                 @default("default")
+  priority          SchedulerPriority      @default(NORMAL)
+  status            SchedulerJobStatus     @default(ACTIVE)
+  payload           Json?
+  nextRunAt         DateTime?
+  lastRunAt         DateTime?
+  maxRetries        Int                    @default(3)
+  retryStrategy     SchedulerRetryStrategy @default(FIXED)
+  retryDelaySeconds Int                    @default(60)
+  timeoutSeconds    Int                    @default(300)
+  metadata          Json?
+  deletedAt         DateTime?
+  deletedById       String?
+  createdById       String?
+  updatedById       String?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  tenant    Tenant?                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  jobs      SchedulerScheduledJob[]
+  histories SchedulerJobHistory[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([code])
+  @@index([taskName])
+  @@index([queueName])
+  @@index([status])
+  @@index([nextRunAt])
+  @@index([deletedAt])
+}
+
+model SchedulerScheduledJob {
+  id                String                 @id @default(cuid())
+  tenantId          String?
+  cronId            String?
+  jobKey            String                 @unique
+  taskName          String
+  taskType          SchedulerTaskType      @default(BACKGROUND)
+  queueName         String                 @default("default")
+  priority          SchedulerPriority      @default(NORMAL)
+  status            SchedulerRunStatus     @default(PENDING)
+  payload           Json?
+  runAt             DateTime
+  nextAttemptAt     DateTime?
+  lockedAt          DateTime?
+  lockedBy          String?
+  attempts          Int                    @default(0)
+  maxAttempts       Int                    @default(3)
+  retryStrategy     SchedulerRetryStrategy @default(FIXED)
+  retryDelaySeconds Int                    @default(60)
+  timeoutSeconds    Int                    @default(300)
+  completedAt       DateTime?
+  failedAt          DateTime?
+  error             String?
+  metadata          Json?
+  deletedAt         DateTime?
+  deletedById       String?
+  createdById       String?
+  updatedById       String?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  tenant    Tenant?                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  cron      SchedulerCronRegistry? @relation(fields: [cronId], references: [id], onDelete: SetNull)
+  histories SchedulerJobHistory[]
+
+  @@index([tenantId])
+  @@index([cronId])
+  @@index([taskName])
+  @@index([taskType])
+  @@index([queueName])
+  @@index([priority])
+  @@index([status])
+  @@index([runAt])
+  @@index([nextAttemptAt])
+  @@index([lockedAt])
+  @@index([deletedAt])
+}
+
+model SchedulerJobHistory {
+  id         String             @id @default(cuid())
+  tenantId   String?
+  jobId      String?
+  cronId     String?
+  runId      String             @unique
+  taskName   String
+  taskType   SchedulerTaskType
+  queueName  String
+  status     SchedulerRunStatus
+  attempt    Int                @default(1)
+  startedAt  DateTime?
+  finishedAt DateTime?
+  durationMs Int?
+  error      String?
+  payload    Json?
+  metadata   Json?
+  actorId    String?
+  createdAt  DateTime           @default(now())
+
+  tenant Tenant?                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  job    SchedulerScheduledJob? @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  cron   SchedulerCronRegistry? @relation(fields: [cronId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([jobId])
+  @@index([cronId])
+  @@index([taskName])
+  @@index([queueName])
+  @@index([status])
+  @@index([startedAt])
+  @@index([finishedAt])
+  @@index([createdAt])
 }
 
 model Account {
