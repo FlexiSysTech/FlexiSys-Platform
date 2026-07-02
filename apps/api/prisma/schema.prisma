@@ -838,6 +838,8 @@ model Tenant {
   branding  TenantBranding?
   limits    TenantUsageLimit[]
   events    TenantProvisioningEvent[]
+  policies  TenantPermissionPolicy[]
+  audits    TenantAuditEvent[]
 
   @@index([code])
   @@index([status])
@@ -1005,6 +1007,51 @@ model TenantProvisioningEvent {
   @@index([tenantId])
   @@index([action])
   @@index([status])
+  @@index([createdAt])
+}
+
+model TenantPermissionPolicy {
+  id             String                    @id @default(cuid())
+  tenantId       String
+  permissionCode String
+  allowed        Boolean                   @default(true)
+  constraints    Json?
+  status         TenantConfigurationStatus @default(ACTIVE)
+  deletedAt      DateTime?
+  deletedById    String?
+  createdById    String?
+  updatedById    String?
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, permissionCode])
+  @@index([tenantId])
+  @@index([permissionCode])
+  @@index([allowed])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model TenantAuditEvent {
+  id        String   @id @default(cuid())
+  tenantId  String
+  action    String
+  entity    String
+  entityId  String?
+  payload   Json?
+  actorId   String?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([action])
+  @@index([entity])
+  @@index([entityId])
   @@index([createdAt])
 }
 

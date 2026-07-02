@@ -28,6 +28,13 @@ import {
   UpdateTenantUsageLimitDto,
 } from './dto/tenant-administration.dto';
 import {
+  CreateTenantPermissionPolicyDto,
+  RecordTenantAuditEventDto,
+  TenantSecurityQueryDto,
+  UpdateTenantPermissionPolicyDto,
+  ValidateTenantSecurityDto,
+} from './dto/tenant-security.dto';
+import {
   CreateTenantFeatureFlagDto,
   CreateTenantLocalizationDto,
   CreateTenantSettingDto,
@@ -45,6 +52,7 @@ import {
 import { TenantIsolationService } from './tenant-isolation.service';
 import { TenantConfigurationService } from './tenant-configuration.service';
 import { TenantAdministrationService } from './tenant-administration.service';
+import { TenantSecurityService } from './tenant-security.service';
 import { TenantsService } from './tenants.service';
 
 @ApiTags('Tenants')
@@ -56,6 +64,7 @@ export class TenantsController {
     private readonly isolation: TenantIsolationService,
     private readonly configuration: TenantConfigurationService,
     private readonly administration: TenantAdministrationService,
+    private readonly security: TenantSecurityService,
   ) {}
 
   @Get()
@@ -359,5 +368,64 @@ export class TenantsController {
   @ApiOperation({ summary: 'Record tenant provisioning event' })
   recordProvisioningEvent(@Body() dto: RecordTenantProvisioningEventDto) {
     return this.administration.recordProvisioningEvent(dto);
+  }
+
+  @Get('security/permission-policies')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.TENANTS_SECURITY)
+  @ApiOperation({ summary: 'Get tenant permission policies' })
+  findPermissionPolicies(@Query() query: TenantSecurityQueryDto) {
+    return this.security.findPermissionPolicies(query);
+  }
+
+  @Post('security/permission-policies')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.TENANTS_SECURITY)
+  @ApiOperation({ summary: 'Create tenant permission policy' })
+  createPermissionPolicy(@Body() dto: CreateTenantPermissionPolicyDto) {
+    return this.security.createPermissionPolicy(dto);
+  }
+
+  @Patch('security/permission-policies/:id')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.TENANTS_SECURITY)
+  @ApiOperation({ summary: 'Update tenant permission policy' })
+  updatePermissionPolicy(
+    @Param('id') id: string,
+    @Body() dto: UpdateTenantPermissionPolicyDto,
+  ) {
+    return this.security.updatePermissionPolicy(id, dto);
+  }
+
+  @Delete('security/permission-policies/:id')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.TENANTS_SECURITY)
+  @ApiOperation({ summary: 'Soft delete tenant permission policy' })
+  removePermissionPolicy(@Param('id') id: string) {
+    return this.security.removePermissionPolicy(id);
+  }
+
+  @Post('security/validate')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.TENANTS_SECURITY)
+  @ApiOperation({ summary: 'Validate tenant security boundary' })
+  validateTenantSecurity(@Body() dto: ValidateTenantSecurityDto) {
+    return this.security.validateTenantSecurity(dto);
+  }
+
+  @Get('security/audit-events')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.TENANTS_SECURITY)
+  @ApiOperation({ summary: 'Get tenant audit events' })
+  findAuditEvents(@Query() query: TenantSecurityQueryDto) {
+    return this.security.findAuditEvents(query);
+  }
+
+  @Post('security/audit-events')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.TENANTS_SECURITY)
+  @ApiOperation({ summary: 'Record tenant audit event' })
+  recordAuditEvent(@Body() dto: RecordTenantAuditEventDto) {
+    return this.security.recordAuditEvent(dto);
   }
 }
