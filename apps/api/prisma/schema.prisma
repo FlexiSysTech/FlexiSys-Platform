@@ -190,6 +190,62 @@ enum ReportExportFormat {
   PDF
 }
 
+enum BusinessRuleStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum BusinessRuleScope {
+  GLOBAL
+  COMPANY
+  BRANCH
+}
+
+enum BusinessRuleTrigger {
+  MANUAL
+  API
+  EVENT
+  SCHEDULED
+}
+
+enum BusinessRuleConditionOperator {
+  EQUALS
+  NOT_EQUALS
+  GREATER_THAN
+  GREATER_THAN_OR_EQUALS
+  LESS_THAN
+  LESS_THAN_OR_EQUALS
+  CONTAINS
+  NOT_CONTAINS
+  IN
+  NOT_IN
+  EXISTS
+  NOT_EXISTS
+}
+
+enum BusinessRuleLogicalOperator {
+  AND
+  OR
+}
+
+enum BusinessRuleActionType {
+  VALIDATION_ERROR
+  SET_FIELD
+  ADD_TAG
+  AUDIT_EVENT
+  NOTIFICATION
+  WORKFLOW
+}
+
+enum BusinessRuleExecutionStatus {
+  MATCHED
+  NOT_MATCHED
+  BLOCKED
+  ERROR
+}
+
 enum RecruitmentStatus {
   ACTIVE
   INACTIVE
@@ -461,33 +517,36 @@ model Company {
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
 
-  branches            Branch[]
-  departments         Department[]
-  positions           Position[]
-  costCenters         CostCenter[]
-  employees           Employee[]
-  shifts              Shift[]
-  holidays            Holiday[]
-  leaveTypes          LeaveType[]
-  leaveBalances       LeaveBalance[]
-  salaryComponents    SalaryComponent[]
-  payrollPeriods      PayrollPeriod[]
-  payrollRuns         PayrollRun[]
-  accounts            Account[]
-  journalEntries      JournalEntry[]
-  reportCategories    ReportCategory[]
-  reportDefinitions   ReportDefinition[]
-  reportExecutions    ReportExecution[]
-  jobPositions        JobPosition[]
-  vacancies           Vacancy[]
-  performanceCycles   PerformanceCycle[]
-  assetCategories     AssetCategory[]
-  assets              Asset[]
-  documentCategories  DocumentCategory[]
-  documents           Document[]
-  selfServiceRequests SelfServiceRequest[]
-  notifications       Notification[]
-  workflowDefinitions WorkflowDefinition[]
+  branches               Branch[]
+  departments            Department[]
+  positions              Position[]
+  costCenters            CostCenter[]
+  employees              Employee[]
+  shifts                 Shift[]
+  holidays               Holiday[]
+  leaveTypes             LeaveType[]
+  leaveBalances          LeaveBalance[]
+  salaryComponents       SalaryComponent[]
+  payrollPeriods         PayrollPeriod[]
+  payrollRuns            PayrollRun[]
+  accounts               Account[]
+  journalEntries         JournalEntry[]
+  reportCategories       ReportCategory[]
+  reportDefinitions      ReportDefinition[]
+  reportExecutions       ReportExecution[]
+  jobPositions           JobPosition[]
+  vacancies              Vacancy[]
+  performanceCycles      PerformanceCycle[]
+  assetCategories        AssetCategory[]
+  assets                 Asset[]
+  documentCategories     DocumentCategory[]
+  documents              Document[]
+  selfServiceRequests    SelfServiceRequest[]
+  notifications          Notification[]
+  workflowDefinitions    WorkflowDefinition[]
+  businessRuleCategories BusinessRuleCategory[]
+  businessRules          BusinessRule[]
+  businessRuleExecutions BusinessRuleExecution[]
 
   @@index([status])
 }
@@ -686,6 +745,7 @@ model Branch {
   shifts            Shift[]
   holidays          Holiday[]
   journalEntryLines JournalEntryLine[]
+  businessRules     BusinessRule[]
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -1802,4 +1862,136 @@ model AuditLog {
   createdById String?
 
   createdBy User? @relation("CreatedBy", fields: [createdById], references: [id])
+}
+
+model BusinessRuleCategory {
+  id          String    @id @default(cuid())
+  companyId   String?
+  code        String
+  name        String
+  description String?
+  isSystem    Boolean   @default(false)
+  deletedAt   DateTime?
+  deletedById String?
+  createdById String?
+  updatedById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  company Company?       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  rules   BusinessRule[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([code])
+  @@index([deletedAt])
+}
+
+model BusinessRule {
+  id             String              @id @default(cuid())
+  companyId      String?
+  branchId       String?
+  categoryId     String?
+  code           String
+  name           String
+  description    String?
+  module         String
+  entity         String
+  trigger        BusinessRuleTrigger @default(API)
+  scope          BusinessRuleScope   @default(COMPANY)
+  status         BusinessRuleStatus  @default(DRAFT)
+  priority       Int                 @default(100)
+  effectiveFrom  DateTime?
+  effectiveTo    DateTime?
+  stopProcessing Boolean             @default(false)
+  metadata       Json?
+  deletedAt      DateTime?
+  deletedById    String?
+  createdById    String?
+  updatedById    String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  company    Company?                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch     Branch?                 @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  category   BusinessRuleCategory?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  conditions BusinessRuleCondition[]
+  actions    BusinessRuleAction[]
+  executions BusinessRuleExecution[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([categoryId])
+  @@index([module])
+  @@index([entity])
+  @@index([trigger])
+  @@index([status])
+  @@index([priority])
+  @@index([deletedAt])
+}
+
+model BusinessRuleCondition {
+  id              String                        @id @default(cuid())
+  ruleId          String
+  field           String
+  operator        BusinessRuleConditionOperator
+  value           Json?
+  logicalOperator BusinessRuleLogicalOperator   @default(AND)
+  groupKey        String?
+  displayOrder    Int                           @default(0)
+  createdAt       DateTime                      @default(now())
+  updatedAt       DateTime                      @updatedAt
+
+  rule BusinessRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([ruleId])
+  @@index([field])
+  @@index([operator])
+  @@index([displayOrder])
+}
+
+model BusinessRuleAction {
+  id           String                 @id @default(cuid())
+  ruleId       String
+  type         BusinessRuleActionType
+  target       String?
+  value        Json?
+  message      String?
+  displayOrder Int                    @default(0)
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+
+  rule BusinessRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([ruleId])
+  @@index([type])
+  @@index([displayOrder])
+}
+
+model BusinessRuleExecution {
+  id           String                      @id @default(cuid())
+  companyId    String?
+  ruleId       String?
+  module       String
+  entity       String
+  trigger      BusinessRuleTrigger
+  status       BusinessRuleExecutionStatus @default(NOT_MATCHED)
+  input        Json?
+  result       Json?
+  error        String?
+  executedById String?
+  executedAt   DateTime                    @default(now())
+  createdAt    DateTime                    @default(now())
+
+  company Company?      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  rule    BusinessRule? @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([ruleId])
+  @@index([module])
+  @@index([entity])
+  @@index([trigger])
+  @@index([status])
+  @@index([executedAt])
 }

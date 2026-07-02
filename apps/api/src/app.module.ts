@@ -4,6 +4,7 @@ import { AccountingModule } from './accounting/accounting.module';
 import { AssetsModule } from './assets/assets.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { AuthModule } from './auth/auth.module';
+import { BusinessRulesModule } from './business-rules/business-rules.module';
 import { DocumentsModule } from './documents/documents.module';
 import { EmployeesModule } from './employees/employees.module';
 import { EssModule } from './ess/ess.module';
@@ -37,6 +38,7 @@ import { WorkflowsModule } from './workflows/workflows.module';
     PayrollModule,
     RecruitmentModule,
     ReportingModule,
+    BusinessRulesModule,
     PerformanceModule,
     AssetsModule,
     DocumentsModule,

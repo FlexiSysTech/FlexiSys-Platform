@@ -90,6 +90,12 @@ export const Permission = {
   REPORTING_DELETE: 'reporting.delete',
   REPORTING_EXECUTE: 'reporting.execute',
   REPORTING_EXPORT: 'reporting.export',
+
+  BUSINESS_RULES_READ: 'business-rules.read',
+  BUSINESS_RULES_CREATE: 'business-rules.create',
+  BUSINESS_RULES_UPDATE: 'business-rules.update',
+  BUSINESS_RULES_DELETE: 'business-rules.delete',
+  BUSINESS_RULES_EXECUTE: 'business-rules.execute',
 } as const;
 
 export type PermissionCode = (typeof Permission)[keyof typeof Permission];
