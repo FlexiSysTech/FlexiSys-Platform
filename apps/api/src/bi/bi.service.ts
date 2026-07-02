@@ -11,6 +11,7 @@ import {
   CreateBiDashboardDto,
   CreateBiDashboardWidgetDto,
 } from './dto/bi-dashboard.dto';
+import { BiTrendQueryDto } from './dto/bi-trend.dto';
 import {
   BiKpiQueryDto,
   BiKpiSnapshotQueryDto,
@@ -32,6 +33,7 @@ import {
   BiDashboardWidgetEntity,
   BiExecutiveDashboardEntity,
 } from './entities/bi-dashboard.entity';
+import { BiTrendEntity, BiTrendPointEntity } from './entities/bi-trend.entity';
 import {
   BiAnalyticsExecutionEntity,
   BiDatasetEntity,
@@ -575,6 +577,72 @@ export class BiService {
     });
   }
 
+  async getKpiTrend(id: string, query: BiTrendQueryDto) {
+    await this.ensureKpiExists(id);
+    const items = await this.prisma.biKpiSnapshot.findMany({
+      where: {
+        kpiId: id,
+        ...(query.period ? { period: query.period } : {}),
+        ...(query.from || query.to
+          ? {
+              periodStart: {
+                ...(query.from ? { gte: new Date(query.from) } : {}),
+                ...(query.to ? { lte: new Date(query.to) } : {}),
+              },
+            }
+          : {}),
+      },
+      orderBy: { periodStart: 'asc' },
+      take: 120,
+    });
+    await this.audit.record({
+      action: 'BI_KPI_TREND_VIEW',
+      entity: 'BiKpiDefinition',
+      entityId: id,
+      payload: { points: items.length },
+    });
+    return this.buildTrend(
+      id,
+      items.map((item) => ({
+        timestamp: item.periodStart,
+        value: Number(item.value.toString()),
+      })),
+    );
+  }
+
+  async getMetricTrend(id: string, query: BiTrendQueryDto) {
+    await this.ensureMetricExists(id);
+    const items = await this.prisma.biMetricObservation.findMany({
+      where: {
+        metricId: id,
+        ...(query.period ? { period: query.period } : {}),
+        ...(query.from || query.to
+          ? {
+              observedAt: {
+                ...(query.from ? { gte: new Date(query.from) } : {}),
+                ...(query.to ? { lte: new Date(query.to) } : {}),
+              },
+            }
+          : {}),
+      },
+      orderBy: { observedAt: 'asc' },
+      take: 120,
+    });
+    await this.audit.record({
+      action: 'BI_METRIC_TREND_VIEW',
+      entity: 'BiMetricDefinition',
+      entityId: id,
+      payload: { points: items.length },
+    });
+    return this.buildTrend(
+      id,
+      items.map((item) => ({
+        timestamp: item.observedAt,
+        value: Number(item.value.toString()),
+      })),
+    );
+  }
+
   private async ensureKpiExists(id: string) {
     const item = await this.prisma.biKpiDefinition.findFirst({
       where: this.softDelete.activeWhere({ id }),
@@ -605,6 +673,37 @@ export class BiService {
     });
     if (!item) throw new NotFoundException('BI dashboard not found');
     return item;
+  }
+
+  private buildTrend(
+    subjectId: string,
+    values: Array<{ timestamp: Date; value: number }>,
+  ) {
+    const points = values.map((item, index) => {
+      const previous = index > 0 ? values[index - 1].value : item.value;
+      const change = item.value - previous;
+      const changePercent = previous === 0 ? 0 : (change / previous) * 100;
+      return new BiTrendPointEntity({
+        timestamp: item.timestamp,
+        value: item.value,
+        change,
+        changePercent,
+      });
+    });
+    const latestValue = points.at(-1)?.value ?? 0;
+    const firstValue = points[0]?.value ?? latestValue;
+    const averageValue =
+      points.length === 0
+        ? 0
+        : points.reduce((sum, point) => sum + point.value, 0) / points.length;
+    return new BiTrendEntity({
+      subjectId,
+      latestValue,
+      averageValue,
+      direction:
+        latestValue > firstValue ? 'UP' : latestValue < firstValue ? 'DOWN' : 'FLAT',
+      points,
+    });
   }
 
   private async ensureKpiUnique(

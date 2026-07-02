@@ -17,6 +17,7 @@ import {
   CreateBiDashboardDto,
   CreateBiDashboardWidgetDto,
 } from './dto/bi-dashboard.dto';
+import { BiTrendQueryDto } from './dto/bi-trend.dto';
 import {
   BiKpiQueryDto,
   BiKpiSnapshotQueryDto,
@@ -177,5 +178,19 @@ export class BiController {
   @ApiOperation({ summary: 'Get executive dashboard summary' })
   getExecutiveDashboard() {
     return this.service.getExecutiveDashboard();
+  }
+
+  @Get('kpis/:id/trend')
+  @Permissions(Permission.BI_READ)
+  @ApiOperation({ summary: 'Get KPI trend analysis' })
+  getKpiTrend(@Param('id') id: string, @Query() query: BiTrendQueryDto) {
+    return this.service.getKpiTrend(id, query);
+  }
+
+  @Get('metrics/:id/trend')
+  @Permissions(Permission.BI_READ)
+  @ApiOperation({ summary: 'Get metric trend analysis' })
+  getMetricTrend(@Param('id') id: string, @Query() query: BiTrendQueryDto) {
+    return this.service.getMetricTrend(id, query);
   }
 }
