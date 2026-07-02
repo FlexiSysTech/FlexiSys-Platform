@@ -465,6 +465,27 @@ enum TenantConfigurationStatus {
   ARCHIVED
 }
 
+enum TenantProvisioningAction {
+  PROVISION
+  ACTIVATE
+  SUSPEND
+  RESUME
+  ARCHIVE
+}
+
+enum TenantProvisioningStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum TenantUsagePeriod {
+  DAILY
+  MONTHLY
+  YEARLY
+  LIFETIME
+}
+
 enum RecruitmentStatus {
   ACTIVE
   INACTIVE
@@ -815,6 +836,8 @@ model Tenant {
   flags     TenantFeatureFlag[]
   locales   TenantLocalization[]
   branding  TenantBranding?
+  limits    TenantUsageLimit[]
+  events    TenantProvisioningEvent[]
 
   @@index([code])
   @@index([status])
@@ -940,6 +963,49 @@ model TenantBranding {
   @@index([tenantId])
   @@index([status])
   @@index([deletedAt])
+}
+
+model TenantUsageLimit {
+  id           String                    @id @default(cuid())
+  tenantId     String
+  key          String
+  limitValue   Int
+  currentValue Int                       @default(0)
+  period       TenantUsagePeriod         @default(MONTHLY)
+  status       TenantConfigurationStatus @default(ACTIVE)
+  deletedAt    DateTime?
+  deletedById  String?
+  createdById  String?
+  updatedById  String?
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key, period])
+  @@index([tenantId])
+  @@index([key])
+  @@index([period])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model TenantProvisioningEvent {
+  id        String                   @id @default(cuid())
+  tenantId  String
+  action    TenantProvisioningAction
+  status    TenantProvisioningStatus @default(PENDING)
+  reason    String?
+  payload   Json?
+  actorId   String?
+  createdAt DateTime                 @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([action])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model Account {

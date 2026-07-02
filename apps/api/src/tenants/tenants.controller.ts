@@ -20,6 +20,14 @@ import {
   UpdateTenantDto,
 } from './dto/tenant-core.dto';
 import {
+  CreateTenantUsageLimitDto,
+  ProvisionTenantDto,
+  RecordTenantProvisioningEventDto,
+  TenantAdministrationQueryDto,
+  TenantLifecycleReasonDto,
+  UpdateTenantUsageLimitDto,
+} from './dto/tenant-administration.dto';
+import {
   CreateTenantFeatureFlagDto,
   CreateTenantLocalizationDto,
   CreateTenantSettingDto,
@@ -36,6 +44,7 @@ import {
 } from './dto/tenant-isolation.dto';
 import { TenantIsolationService } from './tenant-isolation.service';
 import { TenantConfigurationService } from './tenant-configuration.service';
+import { TenantAdministrationService } from './tenant-administration.service';
 import { TenantsService } from './tenants.service';
 
 @ApiTags('Tenants')
@@ -46,6 +55,7 @@ export class TenantsController {
     private readonly service: TenantsService,
     private readonly isolation: TenantIsolationService,
     private readonly configuration: TenantConfigurationService,
+    private readonly administration: TenantAdministrationService,
   ) {}
 
   @Get()
@@ -258,5 +268,96 @@ export class TenantsController {
   @ApiOperation({ summary: 'Create or update tenant branding' })
   upsertBranding(@Body() dto: UpsertTenantBrandingDto) {
     return this.configuration.upsertBranding(dto);
+  }
+
+  @Post('administration/provision')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.TENANTS_PROVISION)
+  @ApiOperation({ summary: 'Provision tenant' })
+  provisionTenant(@Body() dto: ProvisionTenantDto) {
+    return this.administration.provisionTenant(dto);
+  }
+
+  @Post('administration/:id/activate')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.TENANTS_PROVISION)
+  @ApiOperation({ summary: 'Activate tenant' })
+  activateTenant(@Param('id') id: string, @Body() dto: TenantLifecycleReasonDto) {
+    return this.administration.activateTenant(id, dto);
+  }
+
+  @Post('administration/:id/suspend')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.TENANTS_PROVISION)
+  @ApiOperation({ summary: 'Suspend tenant' })
+  suspendTenant(@Param('id') id: string, @Body() dto: TenantLifecycleReasonDto) {
+    return this.administration.suspendTenant(id, dto);
+  }
+
+  @Post('administration/:id/resume')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.TENANTS_PROVISION)
+  @ApiOperation({ summary: 'Resume tenant' })
+  resumeTenant(@Param('id') id: string, @Body() dto: TenantLifecycleReasonDto) {
+    return this.administration.resumeTenant(id, dto);
+  }
+
+  @Post('administration/:id/archive')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.TENANTS_PROVISION)
+  @ApiOperation({ summary: 'Archive tenant' })
+  archiveTenant(@Param('id') id: string, @Body() dto: TenantLifecycleReasonDto) {
+    return this.administration.archiveTenant(id, dto);
+  }
+
+  @Get('administration/usage-limits')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.TENANTS_READ)
+  @ApiOperation({ summary: 'Get tenant usage limits' })
+  findUsageLimits(@Query() query: TenantAdministrationQueryDto) {
+    return this.administration.findUsageLimits(query);
+  }
+
+  @Post('administration/usage-limits')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.TENANTS_UPDATE)
+  @ApiOperation({ summary: 'Create tenant usage limit' })
+  createUsageLimit(@Body() dto: CreateTenantUsageLimitDto) {
+    return this.administration.createUsageLimit(dto);
+  }
+
+  @Patch('administration/usage-limits/:id')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.TENANTS_UPDATE)
+  @ApiOperation({ summary: 'Update tenant usage limit' })
+  updateUsageLimit(
+    @Param('id') id: string,
+    @Body() dto: UpdateTenantUsageLimitDto,
+  ) {
+    return this.administration.updateUsageLimit(id, dto);
+  }
+
+  @Delete('administration/usage-limits/:id')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.TENANTS_DELETE)
+  @ApiOperation({ summary: 'Soft delete tenant usage limit' })
+  removeUsageLimit(@Param('id') id: string) {
+    return this.administration.removeUsageLimit(id);
+  }
+
+  @Get('administration/events')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.TENANTS_READ)
+  @ApiOperation({ summary: 'Get tenant provisioning events' })
+  findProvisioningEvents(@Query() query: TenantAdministrationQueryDto) {
+    return this.administration.findProvisioningEvents(query);
+  }
+
+  @Post('administration/events')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.TENANTS_PROVISION)
+  @ApiOperation({ summary: 'Record tenant provisioning event' })
+  recordProvisioningEvent(@Body() dto: RecordTenantProvisioningEventDto) {
+    return this.administration.recordProvisioningEvent(dto);
   }
 }
