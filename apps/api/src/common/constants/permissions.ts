@@ -103,6 +103,13 @@ export const Permission = {
   AI_DELETE: 'ai.delete',
   AI_EXECUTE: 'ai.execute',
   AI_GOVERN: 'ai.govern',
+
+  INTEGRATIONS_READ: 'integrations.read',
+  INTEGRATIONS_CREATE: 'integrations.create',
+  INTEGRATIONS_UPDATE: 'integrations.update',
+  INTEGRATIONS_DELETE: 'integrations.delete',
+  INTEGRATIONS_EXECUTE: 'integrations.execute',
+  INTEGRATIONS_MONITOR: 'integrations.monitor',
 } as const;
 
 export type PermissionCode = (typeof Permission)[keyof typeof Permission];

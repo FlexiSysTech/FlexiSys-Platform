@@ -281,6 +281,37 @@ enum AiGovernanceStatus {
   ARCHIVED
 }
 
+enum IntegrationProviderType {
+  REST
+  WEBHOOK
+  FILE
+  DATABASE
+  CUSTOM
+}
+
+enum IntegrationStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum IntegrationCredentialType {
+  API_KEY
+  BASIC_AUTH
+  BEARER_TOKEN
+  OAUTH2
+  CUSTOM
+}
+
+enum IntegrationConnectionStatus {
+  DISCONNECTED
+  CONNECTING
+  CONNECTED
+  FAILED
+  DISABLED
+}
+
 enum RecruitmentStatus {
   ACTIVE
   INACTIVE
@@ -587,6 +618,9 @@ model Company {
   aiUsageRecords         AiUsageRecord[]
   aiUsageLimits          AiUsageLimit[]
   aiSafetyPolicies       AiSafetyPolicy[]
+  integrationProviders   IntegrationProvider[]
+  integrationCredentials IntegrationCredential[]
+  integrationConnections IntegrationConnection[]
 
   @@index([status])
 }
@@ -2181,6 +2215,92 @@ model AiSafetyPolicy {
   @@unique([companyId, code])
   @@index([companyId])
   @@index([code])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model IntegrationProvider {
+  id          String                  @id @default(cuid())
+  companyId   String?
+  code        String
+  name        String
+  type        IntegrationProviderType @default(REST)
+  status      IntegrationStatus       @default(DRAFT)
+  baseUrl     String?
+  config      Json?
+  isSystem    Boolean                 @default(false)
+  deletedAt   DateTime?
+  deletedById String?
+  createdById String?
+  updatedById String?
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  company     Company?                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  credentials IntegrationCredential[]
+  connections IntegrationConnection[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([code])
+  @@index([type])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model IntegrationCredential {
+  id           String                    @id @default(cuid())
+  companyId    String?
+  providerId   String
+  name         String
+  type         IntegrationCredentialType @default(API_KEY)
+  maskedSecret String?
+  secretRef    String?
+  metadata     Json?
+  status       IntegrationStatus         @default(DRAFT)
+  deletedAt    DateTime?
+  deletedById  String?
+  createdById  String?
+  updatedById  String?
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+
+  company     Company?                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  provider    IntegrationProvider     @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  connections IntegrationConnection[]
+
+  @@index([companyId])
+  @@index([providerId])
+  @@index([type])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model IntegrationConnection {
+  id              String                      @id @default(cuid())
+  companyId       String?
+  providerId      String
+  credentialId    String?
+  name            String
+  status          IntegrationConnectionStatus @default(DISCONNECTED)
+  config          Json?
+  lastTestedAt    DateTime?
+  lastConnectedAt DateTime?
+  lastError       String?
+  deletedAt       DateTime?
+  deletedById     String?
+  createdById     String?
+  updatedById     String?
+  createdAt       DateTime                    @default(now())
+  updatedAt       DateTime                    @updatedAt
+
+  company    Company?               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  provider   IntegrationProvider    @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  credential IntegrationCredential? @relation(fields: [credentialId], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([providerId])
+  @@index([credentialId])
   @@index([status])
   @@index([deletedAt])
 }

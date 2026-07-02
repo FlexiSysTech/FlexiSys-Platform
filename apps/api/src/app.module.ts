@@ -9,6 +9,7 @@ import { BusinessRulesModule } from './business-rules/business-rules.module';
 import { DocumentsModule } from './documents/documents.module';
 import { EmployeesModule } from './employees/employees.module';
 import { EssModule } from './ess/ess.module';
+import { IntegrationsModule } from './integrations/integrations.module';
 import { LeaveModule } from './leave/leave.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { OrganizationModule } from './organization/organization.module';
@@ -41,6 +42,7 @@ import { WorkflowsModule } from './workflows/workflows.module';
     RecruitmentModule,
     ReportingModule,
     BusinessRulesModule,
+    IntegrationsModule,
     PerformanceModule,
     AssetsModule,
     DocumentsModule,
