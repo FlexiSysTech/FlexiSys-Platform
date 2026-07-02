@@ -13,6 +13,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Permission, Permissions } from '../common/decorators/permissions.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { BusinessRulesService } from './business-rules.service';
+import { BusinessRuleExecutionQueryDto } from './dto/business-rule-execution-query.dto';
 import { BusinessRuleQueryDto } from './dto/business-rule-query.dto';
 import { CreateBusinessRuleActionDto } from './dto/create-business-rule-action.dto';
 import { CreateBusinessRuleCategoryDto } from './dto/create-business-rule-category.dto';
@@ -63,6 +64,30 @@ export class BusinessRulesController {
   @ApiOperation({ summary: 'Soft delete business rule category' })
   removeCategory(@Param('id') id: string) {
     return this.service.removeCategory(id);
+  }
+
+  @Post('categories/:id/restore')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.BUSINESS_RULES_UPDATE)
+  @ApiOperation({ summary: 'Restore business rule category' })
+  restoreCategory(@Param('id') id: string) {
+    return this.service.restoreCategory(id);
+  }
+
+  @Get('executions')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.BUSINESS_RULES_READ)
+  @ApiOperation({ summary: 'Get business rule execution history' })
+  findExecutions(@Query() query: BusinessRuleExecutionQueryDto) {
+    return this.service.findExecutions(query);
+  }
+
+  @Get('dashboard')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.BUSINESS_RULES_READ)
+  @ApiOperation({ summary: 'Get business rules dashboard' })
+  getDashboard(@Query('companyId') companyId?: string) {
+    return this.service.getDashboard(companyId);
   }
 
   @Get()
@@ -189,5 +214,13 @@ export class BusinessRulesController {
   @ApiOperation({ summary: 'Soft delete business rule' })
   removeRule(@Param('id') id: string) {
     return this.service.removeRule(id);
+  }
+
+  @Post(':id/restore')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.BUSINESS_RULES_UPDATE)
+  @ApiOperation({ summary: 'Restore business rule' })
+  restoreRule(@Param('id') id: string) {
+    return this.service.restoreRule(id);
   }
 }

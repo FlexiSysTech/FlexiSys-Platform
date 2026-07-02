@@ -13,6 +13,7 @@ import { SoftDeleteService } from '../platform/soft-delete';
 import { StatusTransitionService } from '../platform/status-transitions';
 import { PrismaService } from '../prisma/prisma.service';
 import { BusinessRuleQueryDto } from './dto/business-rule-query.dto';
+import { BusinessRuleExecutionQueryDto } from './dto/business-rule-execution-query.dto';
 import { CreateBusinessRuleActionDto } from './dto/create-business-rule-action.dto';
 import { CreateBusinessRuleCategoryDto } from './dto/create-business-rule-category.dto';
 import { CreateBusinessRuleConditionDto } from './dto/create-business-rule-condition.dto';
@@ -34,6 +35,8 @@ import {
   BusinessRuleEvaluationActionEntity,
   BusinessRuleEvaluationEntity,
 } from './entities/business-rule-evaluation.entity';
+import { BusinessRuleDashboardEntity } from './entities/business-rule-dashboard.entity';
+import { BusinessRuleExecutionEntity } from './entities/business-rule-execution.entity';
 
 @Injectable()
 export class BusinessRulesService {
@@ -157,6 +160,25 @@ export class BusinessRulesService {
     return {
       success: true,
       deletedCategory: new BusinessRuleCategoryEntity(result.record),
+    };
+  }
+
+  async restoreCategory(id: string) {
+    const result = await this.softDelete.restore(
+      this.prisma.businessRuleCategory as never,
+      id,
+    );
+
+    await this.audit.record({
+      action: 'BUSINESS_RULE_CATEGORY_RESTORE',
+      entity: 'BusinessRuleCategory',
+      entityId: id,
+      payload: { restored: true },
+    });
+
+    return {
+      success: true,
+      restoredCategory: new BusinessRuleCategoryEntity(result.record),
     };
   }
 
@@ -335,6 +357,22 @@ export class BusinessRulesService {
     });
 
     return { success: true, deletedRule: new BusinessRuleEntity(result.record) };
+  }
+
+  async restoreRule(id: string) {
+    const result = await this.softDelete.restore(
+      this.prisma.businessRule as never,
+      id,
+    );
+
+    await this.audit.record({
+      action: 'BUSINESS_RULE_RESTORE',
+      entity: 'BusinessRule',
+      entityId: id,
+      payload: { restored: true },
+    });
+
+    return { success: true, restoredRule: new BusinessRuleEntity(result.record) };
   }
 
   async findConditions(ruleId: string, query: BusinessRuleQueryDto) {
@@ -623,6 +661,98 @@ export class BusinessRulesService {
     });
 
     return result;
+  }
+
+  async findExecutions(query: BusinessRuleExecutionQueryDto) {
+    const companyId = query.companyId ?? this.context.getCompanyId();
+    const where: Prisma.BusinessRuleExecutionWhereInput = {
+      ...(companyId ? { companyId } : {}),
+      ...(query.ruleId ? { ruleId: query.ruleId } : {}),
+      ...(query.module ? { module: query.module } : {}),
+      ...(query.entity ? { entity: query.entity } : {}),
+      ...(query.trigger ? { trigger: query.trigger } : {}),
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.from || query.to
+        ? {
+            executedAt: {
+              ...(query.from ? { gte: query.from } : {}),
+              ...(query.to ? { lte: query.to } : {}),
+            },
+          }
+        : {}),
+    };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.businessRuleExecution.findMany({
+        where,
+        orderBy: { executedAt: 'desc' },
+        ...this.pagination.getSkipTake(query),
+      }),
+      this.prisma.businessRuleExecution.count({ where }),
+    ]);
+
+    return this.pagination.buildResponse(
+      items.map((item) => new BusinessRuleExecutionEntity(item)),
+      total,
+      query,
+    );
+  }
+
+  async getDashboard(companyId?: string) {
+    const resolvedCompanyId = companyId ?? this.context.getCompanyId();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const ruleWhere: Prisma.BusinessRuleWhereInput = this.softDelete.activeWhere({
+      ...(resolvedCompanyId ? { companyId: resolvedCompanyId } : {}),
+    });
+    const executionWhere: Prisma.BusinessRuleExecutionWhereInput = {
+      ...(resolvedCompanyId ? { companyId: resolvedCompanyId } : {}),
+      executedAt: { gte: today },
+    };
+
+    const [
+      totalRules,
+      activeRules,
+      draftRules,
+      inactiveRules,
+      archivedRules,
+      executionsToday,
+      blockedExecutionsToday,
+      errorExecutionsToday,
+    ] = await this.prisma.$transaction([
+      this.prisma.businessRule.count({ where: ruleWhere }),
+      this.prisma.businessRule.count({
+        where: { ...ruleWhere, status: 'ACTIVE' },
+      }),
+      this.prisma.businessRule.count({
+        where: { ...ruleWhere, status: 'DRAFT' },
+      }),
+      this.prisma.businessRule.count({
+        where: { ...ruleWhere, status: 'INACTIVE' },
+      }),
+      this.prisma.businessRule.count({
+        where: { ...ruleWhere, status: 'ARCHIVED' },
+      }),
+      this.prisma.businessRuleExecution.count({ where: executionWhere }),
+      this.prisma.businessRuleExecution.count({
+        where: { ...executionWhere, status: 'BLOCKED' },
+      }),
+      this.prisma.businessRuleExecution.count({
+        where: { ...executionWhere, status: 'ERROR' },
+      }),
+    ]);
+
+    return new BusinessRuleDashboardEntity({
+      totalRules,
+      activeRules,
+      draftRules,
+      inactiveRules,
+      archivedRules,
+      executionsToday,
+      blockedExecutionsToday,
+      errorExecutionsToday,
+    });
   }
 
   private async resolveCompanyId(companyId?: string): Promise<string | null> {
