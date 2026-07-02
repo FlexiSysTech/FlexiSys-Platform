@@ -391,6 +391,27 @@ enum PluginLifecycleAction {
   HEALTH_CHECK
 }
 
+enum PluginHookType {
+  BEFORE
+  AFTER
+  VALIDATION
+  ENRICHMENT
+}
+
+enum PluginServiceType {
+  INTERNAL_API
+  INTEGRATION
+  AI
+  REPORTING
+  CUSTOM
+}
+
+enum PluginEventStatus {
+  PENDING
+  DISPATCHED
+  FAILED
+}
+
 enum RecruitmentStatus {
   ACTIVE
   INACTIVE
@@ -2685,9 +2706,15 @@ model PluginRegistryEntry {
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
 
-  company         Company?               @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  manifest        PluginManifest         @relation(fields: [manifestId], references: [id], onDelete: Cascade)
-  lifecycleEvents PluginLifecycleEvent[]
+  company            Company?                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  manifest           PluginManifest            @relation(fields: [manifestId], references: [id], onDelete: Cascade)
+  lifecycleEvents    PluginLifecycleEvent[]
+  eventSubscriptions PluginEventSubscription[]
+  hooks              PluginHook[]
+  serviceBindings    PluginServiceBinding[]
+  permissionGrants   PluginPermissionGrant[]
+  configurations     PluginConfiguration[]
+  events             PluginEvent[]
 
   @@unique([companyId, manifestId])
   @@index([companyId])
@@ -2714,5 +2741,145 @@ model PluginLifecycleEvent {
   @@index([registryEntryId])
   @@index([action])
   @@index([success])
+  @@index([createdAt])
+}
+
+model PluginEventSubscription {
+  id              String       @id @default(cuid())
+  registryEntryId String
+  eventName       String
+  filter          Json?
+  status          PluginStatus @default(ACTIVE)
+  deletedAt       DateTime?
+  deletedById     String?
+  createdById     String?
+  updatedById     String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  registryEntry PluginRegistryEntry @relation(fields: [registryEntryId], references: [id], onDelete: Cascade)
+
+  @@unique([registryEntryId, eventName])
+  @@index([registryEntryId])
+  @@index([eventName])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model PluginHook {
+  id              String         @id @default(cuid())
+  registryEntryId String
+  code            String
+  hookPoint       String
+  type            PluginHookType @default(AFTER)
+  priority        Int            @default(100)
+  config          Json?
+  status          PluginStatus   @default(ACTIVE)
+  deletedAt       DateTime?
+  deletedById     String?
+  createdById     String?
+  updatedById     String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  registryEntry PluginRegistryEntry @relation(fields: [registryEntryId], references: [id], onDelete: Cascade)
+
+  @@unique([registryEntryId, code])
+  @@index([registryEntryId])
+  @@index([hookPoint])
+  @@index([type])
+  @@index([priority])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model PluginServiceBinding {
+  id              String            @id @default(cuid())
+  registryEntryId String
+  code            String
+  serviceType     PluginServiceType @default(INTERNAL_API)
+  endpoint        String?
+  contract        Json?
+  status          PluginStatus      @default(ACTIVE)
+  deletedAt       DateTime?
+  deletedById     String?
+  createdById     String?
+  updatedById     String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  registryEntry PluginRegistryEntry @relation(fields: [registryEntryId], references: [id], onDelete: Cascade)
+
+  @@unique([registryEntryId, code])
+  @@index([registryEntryId])
+  @@index([serviceType])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model PluginPermissionGrant {
+  id              String       @id @default(cuid())
+  registryEntryId String
+  permissionCode  String
+  status          PluginStatus @default(ACTIVE)
+  constraints     Json?
+  deletedAt       DateTime?
+  deletedById     String?
+  createdById     String?
+  updatedById     String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  registryEntry PluginRegistryEntry @relation(fields: [registryEntryId], references: [id], onDelete: Cascade)
+
+  @@unique([registryEntryId, permissionCode])
+  @@index([registryEntryId])
+  @@index([permissionCode])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model PluginConfiguration {
+  id              String       @id @default(cuid())
+  registryEntryId String
+  key             String
+  value           Json?
+  isSecret        Boolean      @default(false)
+  secretRef       String?
+  status          PluginStatus @default(ACTIVE)
+  deletedAt       DateTime?
+  deletedById     String?
+  createdById     String?
+  updatedById     String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  registryEntry PluginRegistryEntry @relation(fields: [registryEntryId], references: [id], onDelete: Cascade)
+
+  @@unique([registryEntryId, key])
+  @@index([registryEntryId])
+  @@index([key])
+  @@index([isSecret])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model PluginEvent {
+  id              String            @id @default(cuid())
+  registryEntryId String?
+  eventName       String
+  payload         Json?
+  status          PluginEventStatus @default(PENDING)
+  error           String?
+  dispatchedAt    DateTime?
+  createdById     String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  registryEntry PluginRegistryEntry? @relation(fields: [registryEntryId], references: [id], onDelete: SetNull)
+
+  @@index([registryEntryId])
+  @@index([eventName])
+  @@index([status])
   @@index([createdAt])
 }
