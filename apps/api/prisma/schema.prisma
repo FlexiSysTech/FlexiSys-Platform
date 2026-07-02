@@ -555,6 +555,14 @@ enum ObservabilityMetricUnit {
   VALUE
 }
 
+enum ObservabilityLogLevel {
+  DEBUG
+  INFO
+  WARN
+  ERROR
+  FATAL
+}
+
 enum RecruitmentStatus {
   ACTIVE
   INACTIVE
@@ -921,6 +929,7 @@ model Tenant {
   observabilityChecks            ObservabilityHealthCheckResult[]
   observabilityMetricDefinitions ObservabilityMetricDefinition[]
   observabilityMetricSamples     ObservabilityMetricSample[]
+  observabilityLogs              ObservabilityLogEntry[]
 
   @@index([code])
   @@index([status])
@@ -1505,6 +1514,34 @@ model ObservabilityMetricSample {
   @@index([endpoint])
   @@index([statusCode])
   @@index([recordedAt])
+}
+
+model ObservabilityLogEntry {
+  id            String                @id @default(cuid())
+  tenantId      String?
+  userId        String?
+  correlationId String?
+  requestId     String?
+  moduleName    String
+  level         ObservabilityLogLevel @default(INFO)
+  message       String
+  method        String?
+  path          String?
+  statusCode    Int?
+  durationMs    Int?
+  context       Json?
+  createdAt     DateTime              @default(now())
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([correlationId])
+  @@index([requestId])
+  @@index([moduleName])
+  @@index([level])
+  @@index([statusCode])
+  @@index([createdAt])
 }
 
 model Account {

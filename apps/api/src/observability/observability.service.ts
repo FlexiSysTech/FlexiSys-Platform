@@ -6,6 +6,7 @@ import {
 import {
   ObservabilityCheckType,
   ObservabilityHealthStatus,
+  ObservabilityLogLevel,
   ObservabilityMetricType,
   ObservabilityProviderStatus,
   Prisma,
@@ -30,6 +31,10 @@ import {
   UpdateMetricDefinitionDto,
 } from './dto/observability-metrics.dto';
 import {
+  ObservabilityLogQueryDto,
+  RecordLogEntryDto,
+} from './dto/observability-logging.dto';
+import {
   ObservabilityHealthCheckResultEntity,
   ObservabilityHealthProviderEntity,
   ObservabilitySystemHealthEntity,
@@ -39,6 +44,7 @@ import {
   ObservabilityMetricSampleEntity,
   ObservabilityMetricSummaryEntity,
 } from './entities/observability-metrics.entity';
+import { ObservabilityLogEntryEntity } from './entities/observability-logging.entity';
 
 @Injectable()
 export class ObservabilityService {
@@ -418,6 +424,82 @@ export class ObservabilityService {
 
   getBusinessRulesMetrics(query: ObservabilityMetricQueryDto) {
     return this.getMetricSummary('BUSINESS_RULES', query);
+  }
+
+  async findLogEntries(query: ObservabilityLogQueryDto) {
+    const tenantId = query.tenantId ?? this.context.getTenantId();
+    const normalized = this.pagination.normalize(query);
+    const where: Prisma.ObservabilityLogEntryWhereInput = {
+      ...(tenantId ? { tenantId } : {}),
+      ...(query.userId ? { userId: query.userId } : {}),
+      ...(query.correlationId ? { correlationId: query.correlationId } : {}),
+      ...(query.requestId ? { requestId: query.requestId } : {}),
+      ...(query.moduleName ? { moduleName: query.moduleName } : {}),
+      ...(query.level ? { level: query.level } : {}),
+      ...(normalized.search
+        ? { message: { contains: normalized.search, mode: 'insensitive' } }
+        : {}),
+    };
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.observabilityLogEntry.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        ...this.pagination.getSkipTake(query),
+      }),
+      this.prisma.observabilityLogEntry.count({ where }),
+    ]);
+    return this.pagination.buildResponse(
+      items.map((item) => new ObservabilityLogEntryEntity(item)),
+      total,
+      query,
+    );
+  }
+
+  async recordLogEntry(dto: RecordLogEntryDto) {
+    const tenantId = await this.resolveTenantId(dto.tenantId);
+    const metadata = this.context.getMetadata();
+    const entry = await this.prisma.observabilityLogEntry.create({
+      data: {
+        tenantId,
+        userId: dto.userId ?? this.context.getUserId(),
+        correlationId: dto.correlationId ?? metadata?.correlationId,
+        requestId: dto.requestId ?? metadata?.requestId,
+        moduleName: dto.moduleName,
+        level: dto.level,
+        message: dto.message,
+        method: dto.method,
+        path: dto.path,
+        statusCode: dto.statusCode,
+        durationMs: dto.durationMs,
+        context: this.toJson(dto.context),
+      },
+    });
+    if (dto.level === 'ERROR' || dto.level === 'FATAL') {
+      await this.audit.record({
+        action: 'OBSERVABILITY_LOG_CRITICAL',
+        entity: 'ObservabilityLogEntry',
+        entityId: entry.id,
+        payload: { level: entry.level, moduleName: entry.moduleName },
+      });
+    }
+    return new ObservabilityLogEntryEntity(entry);
+  }
+
+  async getLogLevelSummary(query: ObservabilityLogQueryDto) {
+    const tenantId = query.tenantId ?? this.context.getTenantId();
+    const levels: ObservabilityLogLevel[] = ['DEBUG', 'INFO', 'WARN', 'ERROR', 'FATAL'];
+    const counts = await this.prisma.$transaction(
+      levels.map((level) =>
+        this.prisma.observabilityLogEntry.count({
+          where: {
+            ...(tenantId ? { tenantId } : {}),
+            level,
+            ...(query.moduleName ? { moduleName: query.moduleName } : {}),
+          },
+        }),
+      ),
+    );
+    return levels.map((level, index) => ({ level, count: counts[index] }));
   }
 
   private async getMetricSummary(

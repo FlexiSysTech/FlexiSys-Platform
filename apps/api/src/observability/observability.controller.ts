@@ -25,6 +25,10 @@ import {
   RecordMetricSampleDto,
   UpdateMetricDefinitionDto,
 } from './dto/observability-metrics.dto';
+import {
+  ObservabilityLogQueryDto,
+  RecordLogEntryDto,
+} from './dto/observability-logging.dto';
 import { ObservabilityService } from './observability.service';
 
 @ApiTags('Observability')
@@ -189,5 +193,29 @@ export class ObservabilityController {
   @ApiOperation({ summary: 'Get business rules metrics summary' })
   getBusinessRulesMetrics(@Query() query: ObservabilityMetricQueryDto) {
     return this.service.getBusinessRulesMetrics(query);
+  }
+
+  @Get('logs')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.OBSERVABILITY_READ)
+  @ApiOperation({ summary: 'Get structured log entries' })
+  findLogEntries(@Query() query: ObservabilityLogQueryDto) {
+    return this.service.findLogEntries(query);
+  }
+
+  @Post('logs')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.OBSERVABILITY_CREATE)
+  @ApiOperation({ summary: 'Record structured log entry' })
+  recordLogEntry(@Body() dto: RecordLogEntryDto) {
+    return this.service.recordLogEntry(dto);
+  }
+
+  @Get('logs/summary')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.OBSERVABILITY_READ)
+  @ApiOperation({ summary: 'Get log level summary' })
+  getLogLevelSummary(@Query() query: ObservabilityLogQueryDto) {
+    return this.service.getLogLevelSummary(query);
   }
 }
