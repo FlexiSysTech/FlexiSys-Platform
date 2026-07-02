@@ -19,6 +19,13 @@ import {
   UpdatePluginManifestDto,
 } from './dto/plugin-core.dto';
 import {
+  CreatePluginCapabilityGrantDto,
+  CreatePluginDependencyDto,
+  PluginIsolationQueryDto,
+  UpdatePluginDependencyDto,
+  UpsertPluginSandboxPolicyDto,
+} from './dto/plugin-isolation.dto';
+import {
   CreatePluginMarketplacePackageDto,
   CreatePluginMarketplaceVersionDto,
   InstallPluginMarketplaceVersionDto,
@@ -419,5 +426,88 @@ export class PluginsController {
     @Body() dto: UpgradePluginInstallationDto,
   ) {
     return this.service.upgradeInstallation(id, dto);
+  }
+
+  @Get('isolation/sandbox-policies')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PLUGINS_READ)
+  @ApiOperation({ summary: 'Get plugin sandbox policies' })
+  findSandboxPolicies(@Query() query: PluginIsolationQueryDto) {
+    return this.service.findSandboxPolicies(query);
+  }
+
+  @Post('isolation/sandbox-policies')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PLUGINS_GOVERN)
+  @ApiOperation({ summary: 'Create or update plugin sandbox policy' })
+  upsertSandboxPolicy(@Body() dto: UpsertPluginSandboxPolicyDto) {
+    return this.service.upsertSandboxPolicy(dto);
+  }
+
+  @Get('isolation/dependencies')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PLUGINS_READ)
+  @ApiOperation({ summary: 'Get plugin dependencies' })
+  findDependencies(@Query() query: PluginIsolationQueryDto) {
+    return this.service.findDependencies(query);
+  }
+
+  @Post('isolation/dependencies')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PLUGINS_UPDATE)
+  @ApiOperation({ summary: 'Create plugin dependency' })
+  createDependency(@Body() dto: CreatePluginDependencyDto) {
+    return this.service.createDependency(dto);
+  }
+
+  @Patch('isolation/dependencies/:id')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PLUGINS_UPDATE)
+  @ApiOperation({ summary: 'Update plugin dependency' })
+  updateDependency(
+    @Param('id') id: string,
+    @Body() dto: UpdatePluginDependencyDto,
+  ) {
+    return this.service.updateDependency(id, dto);
+  }
+
+  @Post('isolation/registry/:id/validate-dependencies')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PLUGINS_EXECUTE)
+  @ApiOperation({ summary: 'Validate plugin dependencies' })
+  validateDependencies(@Param('id') id: string) {
+    return this.service.validateDependencies(id);
+  }
+
+  @Get('isolation/capability-grants')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PLUGINS_READ)
+  @ApiOperation({ summary: 'Get plugin capability grants' })
+  findCapabilityGrants(@Query() query: PluginIsolationQueryDto) {
+    return this.service.findCapabilityGrants(query);
+  }
+
+  @Post('isolation/capability-grants')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PLUGINS_GOVERN)
+  @ApiOperation({ summary: 'Grant plugin capability' })
+  createCapabilityGrant(@Body() dto: CreatePluginCapabilityGrantDto) {
+    return this.service.createCapabilityGrant(dto);
+  }
+
+  @Delete('isolation/capability-grants/:id')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PLUGINS_GOVERN)
+  @ApiOperation({ summary: 'Revoke plugin capability' })
+  revokeCapabilityGrant(@Param('id') id: string) {
+    return this.service.revokeCapabilityGrant(id);
+  }
+
+  @Post('isolation/registry/:id/validate')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PLUGINS_EXECUTE)
+  @ApiOperation({ summary: 'Validate plugin isolation posture' })
+  validateIsolation(@Param('id') id: string) {
+    return this.service.validateIsolation(id);
   }
 }

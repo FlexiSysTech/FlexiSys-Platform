@@ -420,6 +420,30 @@ enum PluginInstallationStatus {
   UNINSTALLED
 }
 
+enum PluginSandboxLevel {
+  TRUSTED
+  RESTRICTED
+  ISOLATED
+}
+
+enum PluginCapabilityType {
+  EVENTS
+  HOOKS
+  SERVICES
+  CONFIGURATION
+  PERMISSIONS
+  INTEGRATIONS
+  AI
+  NETWORK
+  FILESYSTEM
+}
+
+enum PluginDependencyStatus {
+  SATISFIED
+  MISSING
+  INCOMPATIBLE
+}
+
 enum RecruitmentStatus {
   ACTIVE
   INACTIVE
@@ -2727,6 +2751,9 @@ model PluginRegistryEntry {
   configurations     PluginConfiguration[]
   events             PluginEvent[]
   installations      PluginInstallation[]
+  sandboxPolicy      PluginSandboxPolicy?
+  dependencies       PluginDependency[]
+  capabilityGrants   PluginCapabilityGrant[]
 
   @@unique([companyId, manifestId])
   @@index([companyId])
@@ -2754,6 +2781,73 @@ model PluginLifecycleEvent {
   @@index([action])
   @@index([success])
   @@index([createdAt])
+}
+
+model PluginSandboxPolicy {
+  id                  String             @id @default(cuid())
+  registryEntryId     String             @unique
+  level               PluginSandboxLevel @default(ISOLATED)
+  allowedCapabilities Json?
+  networkPolicy       Json?
+  resourceLimits      Json?
+  status              PluginStatus       @default(ACTIVE)
+  deletedAt           DateTime?
+  deletedById         String?
+  createdById         String?
+  updatedById         String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  registryEntry PluginRegistryEntry @relation(fields: [registryEntryId], references: [id], onDelete: Cascade)
+
+  @@index([level])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model PluginDependency {
+  id              String                 @id @default(cuid())
+  registryEntryId String
+  dependencyKey   String
+  requiredVersion String?
+  optional        Boolean                @default(false)
+  status          PluginDependencyStatus @default(MISSING)
+  resolvedVersion String?
+  message         String?
+  createdById     String?
+  updatedById     String?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  registryEntry PluginRegistryEntry @relation(fields: [registryEntryId], references: [id], onDelete: Cascade)
+
+  @@unique([registryEntryId, dependencyKey])
+  @@index([registryEntryId])
+  @@index([dependencyKey])
+  @@index([status])
+  @@index([optional])
+}
+
+model PluginCapabilityGrant {
+  id              String               @id @default(cuid())
+  registryEntryId String
+  capability      PluginCapabilityType
+  status          PluginStatus         @default(ACTIVE)
+  constraints     Json?
+  deletedAt       DateTime?
+  deletedById     String?
+  createdById     String?
+  updatedById     String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  registryEntry PluginRegistryEntry @relation(fields: [registryEntryId], references: [id], onDelete: Cascade)
+
+  @@unique([registryEntryId, capability])
+  @@index([registryEntryId])
+  @@index([capability])
+  @@index([status])
+  @@index([deletedAt])
 }
 
 model PluginMarketplacePackage {

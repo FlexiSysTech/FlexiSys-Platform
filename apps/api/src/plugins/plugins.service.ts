@@ -8,6 +8,7 @@ import {
   PluginLifecycleAction,
   PluginLifecycleState,
   PluginInstallationStatus,
+  PluginDependencyStatus,
   PluginStatus,
   Prisma,
 } from '@prisma/client';
@@ -26,6 +27,13 @@ import {
   PluginQueryDto,
   UpdatePluginManifestDto,
 } from './dto/plugin-core.dto';
+import {
+  CreatePluginCapabilityGrantDto,
+  CreatePluginDependencyDto,
+  PluginIsolationQueryDto,
+  UpdatePluginDependencyDto,
+  UpsertPluginSandboxPolicyDto,
+} from './dto/plugin-isolation.dto';
 import {
   CreatePluginMarketplacePackageDto,
   CreatePluginMarketplaceVersionDto,
@@ -53,6 +61,12 @@ import {
   PluginManifestEntity,
   PluginRegistryEntryEntity,
 } from './entities/plugin-core.entity';
+import {
+  PluginCapabilityGrantEntity,
+  PluginDependencyEntity,
+  PluginIsolationValidationEntity,
+  PluginSandboxPolicyEntity,
+} from './entities/plugin-isolation.entity';
 import {
   PluginInstallationEntity,
   PluginMarketplacePackageEntity,
@@ -1107,6 +1121,252 @@ export class PluginsService {
     return target;
   }
 
+  async upsertSandboxPolicy(dto: UpsertPluginSandboxPolicyDto) {
+    await this.ensureRegistryEntryExists(dto.registryEntryId);
+    const item = await this.prisma.pluginSandboxPolicy.upsert({
+      where: { registryEntryId: dto.registryEntryId },
+      create: {
+        registryEntryId: dto.registryEntryId,
+        level: dto.level ?? 'ISOLATED',
+        allowedCapabilities: this.toJson(dto.allowedCapabilities),
+        networkPolicy: this.toJson(dto.networkPolicy),
+        resourceLimits: this.toJson(dto.resourceLimits),
+        createdById: this.context.getUserId(),
+      },
+      update: {
+        level: dto.level,
+        allowedCapabilities:
+          dto.allowedCapabilities === undefined
+            ? undefined
+            : this.toJson(dto.allowedCapabilities),
+        networkPolicy:
+          dto.networkPolicy === undefined ? undefined : this.toJson(dto.networkPolicy),
+        resourceLimits:
+          dto.resourceLimits === undefined
+            ? undefined
+            : this.toJson(dto.resourceLimits),
+        updatedById: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'PLUGIN_SANDBOX_POLICY_UPSERT',
+      entity: 'PluginSandboxPolicy',
+      entityId: item.id,
+      payload: { registryEntryId: item.registryEntryId, level: item.level },
+    });
+    return new PluginSandboxPolicyEntity(item);
+  }
+
+  async findSandboxPolicies(query: PluginIsolationQueryDto) {
+    const where: Prisma.PluginSandboxPolicyWhereInput =
+      this.softDelete.activeWhere({
+        ...(query.registryEntryId ? { registryEntryId: query.registryEntryId } : {}),
+        ...(query.status ? { status: query.status } : {}),
+      });
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.pluginSandboxPolicy.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        ...this.pagination.getSkipTake(query),
+      }),
+      this.prisma.pluginSandboxPolicy.count({ where }),
+    ]);
+    return this.pagination.buildResponse(
+      items.map((item) => new PluginSandboxPolicyEntity(item)),
+      total,
+      query,
+    );
+  }
+
+  async createDependency(dto: CreatePluginDependencyDto) {
+    await this.ensureRegistryEntryExists(dto.registryEntryId);
+    const status = await this.resolveDependencyStatus(
+      dto.dependencyKey,
+      dto.requiredVersion,
+      dto.optional ?? false,
+    );
+    const item = await this.prisma.pluginDependency.create({
+      data: {
+        registryEntryId: dto.registryEntryId,
+        dependencyKey: dto.dependencyKey,
+        requiredVersion: dto.requiredVersion,
+        optional: dto.optional ?? false,
+        status: status.status,
+        resolvedVersion: status.resolvedVersion,
+        message: status.message,
+        createdById: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'PLUGIN_DEPENDENCY_CREATE',
+      entity: 'PluginDependency',
+      entityId: item.id,
+      payload: { dependencyKey: item.dependencyKey, status: item.status },
+    });
+    return new PluginDependencyEntity(item);
+  }
+
+  async updateDependency(id: string, dto: UpdatePluginDependencyDto) {
+    const current = await this.ensureDependencyExists(id);
+    if (dto.registryEntryId) await this.ensureRegistryEntryExists(dto.registryEntryId);
+    const item = await this.prisma.pluginDependency.update({
+      where: { id },
+      data: {
+        registryEntryId: dto.registryEntryId,
+        dependencyKey: dto.dependencyKey,
+        requiredVersion: dto.requiredVersion,
+        optional: dto.optional,
+        status: dto.status,
+        resolvedVersion: dto.resolvedVersion,
+        message: dto.message,
+        updatedById: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'PLUGIN_DEPENDENCY_UPDATE',
+      entity: 'PluginDependency',
+      entityId: item.id,
+      payload: { before: current, after: item } as Prisma.InputJsonObject,
+    });
+    return new PluginDependencyEntity(item);
+  }
+
+  async validateDependencies(registryEntryId: string) {
+    await this.ensureRegistryEntryExists(registryEntryId);
+    const dependencies = await this.prisma.pluginDependency.findMany({
+      where: { registryEntryId },
+    });
+    const updated: PluginDependencyEntity[] = [];
+    for (const dependency of dependencies) {
+      const status = await this.resolveDependencyStatus(
+        dependency.dependencyKey,
+        dependency.requiredVersion ?? undefined,
+        dependency.optional,
+      );
+      const item = await this.prisma.pluginDependency.update({
+        where: { id: dependency.id },
+        data: {
+          status: status.status,
+          resolvedVersion: status.resolvedVersion,
+          message: status.message,
+          updatedById: this.context.getUserId(),
+        },
+      });
+      updated.push(new PluginDependencyEntity(item));
+    }
+    return updated;
+  }
+
+  async findDependencies(query: PluginIsolationQueryDto) {
+    const where: Prisma.PluginDependencyWhereInput = {
+      ...(query.registryEntryId ? { registryEntryId: query.registryEntryId } : {}),
+      ...(query.dependencyStatus ? { status: query.dependencyStatus } : {}),
+    };
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.pluginDependency.findMany({
+        where,
+        orderBy: { dependencyKey: 'asc' },
+        ...this.pagination.getSkipTake(query),
+      }),
+      this.prisma.pluginDependency.count({ where }),
+    ]);
+    return this.pagination.buildResponse(
+      items.map((item) => new PluginDependencyEntity(item)),
+      total,
+      query,
+    );
+  }
+
+  async createCapabilityGrant(dto: CreatePluginCapabilityGrantDto) {
+    await this.ensureRegistryEntryExists(dto.registryEntryId);
+    const item = await this.prisma.pluginCapabilityGrant.create({
+      data: {
+        registryEntryId: dto.registryEntryId,
+        capability: dto.capability,
+        status: dto.status ?? 'ACTIVE',
+        constraints: this.toJson(dto.constraints),
+        createdById: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'PLUGIN_CAPABILITY_GRANT_CREATE',
+      entity: 'PluginCapabilityGrant',
+      entityId: item.id,
+      payload: { registryEntryId: item.registryEntryId, capability: item.capability },
+    });
+    return new PluginCapabilityGrantEntity(item);
+  }
+
+  async revokeCapabilityGrant(id: string) {
+    const result = await this.softDelete.softDelete(
+      this.prisma.pluginCapabilityGrant as never,
+      id,
+    );
+    await this.audit.record({
+      action: 'PLUGIN_CAPABILITY_GRANT_REVOKE',
+      entity: 'PluginCapabilityGrant',
+      entityId: id,
+      payload: { revoked: true },
+    });
+    return {
+      success: true,
+      revokedCapability: new PluginCapabilityGrantEntity(result.record),
+    };
+  }
+
+  async findCapabilityGrants(query: PluginIsolationQueryDto) {
+    const where: Prisma.PluginCapabilityGrantWhereInput =
+      this.softDelete.activeWhere({
+        ...(query.registryEntryId ? { registryEntryId: query.registryEntryId } : {}),
+        ...(query.capability ? { capability: query.capability } : {}),
+        ...(query.status ? { status: query.status } : {}),
+      });
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.pluginCapabilityGrant.findMany({
+        where,
+        orderBy: { capability: 'asc' },
+        ...this.pagination.getSkipTake(query),
+      }),
+      this.prisma.pluginCapabilityGrant.count({ where }),
+    ]);
+    return this.pagination.buildResponse(
+      items.map((item) => new PluginCapabilityGrantEntity(item)),
+      total,
+      query,
+    );
+  }
+
+  async validateIsolation(registryEntryId: string) {
+    await this.ensureRegistryEntryExists(registryEntryId);
+    const [dependencies, capabilities, sandbox] = await this.prisma.$transaction([
+      this.prisma.pluginDependency.findMany({ where: { registryEntryId } }),
+      this.prisma.pluginCapabilityGrant.findMany({
+        where: this.softDelete.activeWhere({
+          registryEntryId,
+          status: 'ACTIVE',
+        }),
+      }),
+      this.prisma.pluginSandboxPolicy.findUnique({
+        where: { registryEntryId },
+      }),
+    ]);
+    const missingRequiredDependencies = dependencies.filter(
+      (item) => !item.optional && item.status !== PluginDependencyStatus.SATISFIED,
+    ).length;
+    const allowed = Boolean(sandbox) && missingRequiredDependencies === 0;
+    return new PluginIsolationValidationEntity({
+      registryEntryId,
+      allowed,
+      missingRequiredDependencies,
+      activeCapabilities: capabilities.length,
+      reason: allowed
+        ? null
+        : sandbox
+          ? 'Required plugin dependencies are not satisfied'
+          : 'Plugin sandbox policy is required',
+    });
+  }
+
   private async transitionRegistryEntry(
     id: string,
     action: PluginLifecycleAction,
@@ -1289,6 +1549,12 @@ export class PluginsService {
     return item;
   }
 
+  private async ensureDependencyExists(id: string) {
+    const item = await this.prisma.pluginDependency.findUnique({ where: { id } });
+    if (!item) throw new NotFoundException('Plugin dependency not found');
+    return item;
+  }
+
   private async ensureMarketplacePackageUnique(
     companyId: string | null,
     packageKey: string,
@@ -1340,6 +1606,36 @@ export class PluginsService {
         createdById: this.context.getUserId(),
       },
     });
+  }
+
+  private async resolveDependencyStatus(
+    dependencyKey: string,
+    requiredVersion?: string,
+    optional = false,
+  ) {
+    const manifest = await this.prisma.pluginManifest.findFirst({
+      where: this.softDelete.activeWhere({
+        pluginKey: dependencyKey,
+        ...(requiredVersion ? { version: requiredVersion } : {}),
+      }),
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!manifest) {
+      return {
+        status: optional
+          ? PluginDependencyStatus.SATISFIED
+          : PluginDependencyStatus.MISSING,
+        resolvedVersion: null,
+        message: optional
+          ? 'Optional dependency is not installed'
+          : 'Required dependency is missing',
+      };
+    }
+    return {
+      status: PluginDependencyStatus.SATISFIED,
+      resolvedVersion: manifest.version,
+      message: null,
+    };
   }
 
   private assertKnownPermission(permissionCode: string) {
