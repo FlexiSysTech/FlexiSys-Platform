@@ -6,6 +6,7 @@ import {
 import {
   ObservabilityCheckType,
   ObservabilityHealthStatus,
+  ObservabilityMetricType,
   ObservabilityProviderStatus,
   Prisma,
 } from '@prisma/client';
@@ -23,10 +24,21 @@ import {
   UpdateObservabilityHealthProviderDto,
 } from './dto/observability-core.dto';
 import {
+  CreateMetricDefinitionDto,
+  ObservabilityMetricQueryDto,
+  RecordMetricSampleDto,
+  UpdateMetricDefinitionDto,
+} from './dto/observability-metrics.dto';
+import {
   ObservabilityHealthCheckResultEntity,
   ObservabilityHealthProviderEntity,
   ObservabilitySystemHealthEntity,
 } from './entities/observability-core.entity';
+import {
+  ObservabilityMetricDefinitionEntity,
+  ObservabilityMetricSampleEntity,
+  ObservabilityMetricSummaryEntity,
+} from './entities/observability-metrics.entity';
 
 @Injectable()
 export class ObservabilityService {
@@ -246,6 +258,193 @@ export class ObservabilityService {
     );
   }
 
+  async findMetricDefinitions(query: ObservabilityMetricQueryDto) {
+    const tenantId = query.tenantId ?? this.context.getTenantId();
+    const where: Prisma.ObservabilityMetricDefinitionWhereInput =
+      this.softDelete.activeWhere({
+        ...(tenantId ? { tenantId } : {}),
+        ...(query.moduleName ? { moduleName: query.moduleName } : {}),
+        ...(query.metricType ? { metricType: query.metricType } : {}),
+      });
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.observabilityMetricDefinition.findMany({
+        where,
+        orderBy: [{ moduleName: 'asc' }, { code: 'asc' }],
+        ...this.pagination.getSkipTake(query),
+      }),
+      this.prisma.observabilityMetricDefinition.count({ where }),
+    ]);
+    return this.pagination.buildResponse(
+      items.map((item) => new ObservabilityMetricDefinitionEntity(item)),
+      total,
+      query,
+    );
+  }
+
+  async createMetricDefinition(dto: CreateMetricDefinitionDto) {
+    const tenantId = await this.resolveTenantId(dto.tenantId);
+    await this.ensureMetricDefinitionUnique(tenantId, dto.code);
+    const definition = await this.prisma.observabilityMetricDefinition.create({
+      data: {
+        tenantId,
+        code: dto.code,
+        name: dto.name,
+        moduleName: dto.moduleName,
+        metricType: dto.metricType,
+        unit: dto.unit ?? 'VALUE',
+        status: dto.status ?? 'ACTIVE',
+        metadata: this.toJson(dto.metadata),
+        createdById: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'OBSERVABILITY_METRIC_DEFINITION_CREATE',
+      entity: 'ObservabilityMetricDefinition',
+      entityId: definition.id,
+      payload: { tenantId, code: definition.code, metricType: definition.metricType },
+    });
+    return new ObservabilityMetricDefinitionEntity(definition);
+  }
+
+  async updateMetricDefinition(id: string, dto: UpdateMetricDefinitionDto) {
+    const current = await this.ensureMetricDefinitionExists(id);
+    const tenantId =
+      dto.tenantId === undefined
+        ? current.tenantId
+        : await this.resolveTenantId(dto.tenantId);
+    if (dto.tenantId !== undefined || dto.code) {
+      await this.ensureMetricDefinitionUnique(tenantId, dto.code ?? current.code, id);
+    }
+    const definition = await this.prisma.observabilityMetricDefinition.update({
+      where: { id },
+      data: {
+        tenantId,
+        code: dto.code,
+        name: dto.name,
+        moduleName: dto.moduleName,
+        metricType: dto.metricType,
+        unit: dto.unit,
+        status: dto.status,
+        metadata: dto.metadata === undefined ? undefined : this.toJson(dto.metadata),
+        updatedById: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'OBSERVABILITY_METRIC_DEFINITION_UPDATE',
+      entity: 'ObservabilityMetricDefinition',
+      entityId: definition.id,
+      payload: { before: current, after: definition } as Prisma.InputJsonObject,
+    });
+    return new ObservabilityMetricDefinitionEntity(definition);
+  }
+
+  async removeMetricDefinition(id: string) {
+    const result = await this.softDelete.softDelete(
+      this.prisma.observabilityMetricDefinition as never,
+      id,
+    );
+    await this.audit.record({
+      action: 'OBSERVABILITY_METRIC_DEFINITION_DELETE',
+      entity: 'ObservabilityMetricDefinition',
+      entityId: id,
+      payload: { deleted: true },
+    });
+    return {
+      success: true,
+      deletedDefinition: new ObservabilityMetricDefinitionEntity(
+        result.record as Partial<ObservabilityMetricDefinitionEntity>,
+      ),
+    };
+  }
+
+  async recordMetricSample(dto: RecordMetricSampleDto) {
+    const tenantId = await this.resolveTenantId(dto.tenantId);
+    if (dto.definitionId) await this.ensureMetricDefinitionExists(dto.definitionId);
+    const sample = await this.prisma.observabilityMetricSample.create({
+      data: {
+        tenantId,
+        definitionId: dto.definitionId,
+        metricType: dto.metricType,
+        moduleName: dto.moduleName,
+        metricName: dto.metricName,
+        value: dto.value,
+        unit: dto.unit ?? 'VALUE',
+        endpoint: dto.endpoint,
+        statusCode: dto.statusCode,
+        durationMs: dto.durationMs,
+        labels: this.toJson(dto.labels),
+      },
+    });
+    return new ObservabilityMetricSampleEntity(sample);
+  }
+
+  async findMetricSamples(query: ObservabilityMetricQueryDto) {
+    const tenantId = query.tenantId ?? this.context.getTenantId();
+    const where: Prisma.ObservabilityMetricSampleWhereInput = {
+      ...(tenantId ? { tenantId } : {}),
+      ...(query.moduleName ? { moduleName: query.moduleName } : {}),
+      ...(query.metricType ? { metricType: query.metricType } : {}),
+    };
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.observabilityMetricSample.findMany({
+        where,
+        orderBy: { recordedAt: 'desc' },
+        ...this.pagination.getSkipTake(query),
+      }),
+      this.prisma.observabilityMetricSample.count({ where }),
+    ]);
+    return this.pagination.buildResponse(
+      items.map((item) => new ObservabilityMetricSampleEntity(item)),
+      total,
+      query,
+    );
+  }
+
+  getHttpMetrics(query: ObservabilityMetricQueryDto) {
+    return this.getMetricSummary('HTTP', query);
+  }
+
+  getDatabaseMetrics(query: ObservabilityMetricQueryDto) {
+    return this.getMetricSummary('DATABASE', query);
+  }
+
+  getWorkflowMetrics(query: ObservabilityMetricQueryDto) {
+    return this.getMetricSummary('WORKFLOW', query);
+  }
+
+  getPayrollMetrics(query: ObservabilityMetricQueryDto) {
+    return this.getMetricSummary('PAYROLL', query);
+  }
+
+  getBusinessRulesMetrics(query: ObservabilityMetricQueryDto) {
+    return this.getMetricSummary('BUSINESS_RULES', query);
+  }
+
+  private async getMetricSummary(
+    metricType: ObservabilityMetricType,
+    query: ObservabilityMetricQueryDto,
+  ) {
+    const tenantId = query.tenantId ?? this.context.getTenantId();
+    const where: Prisma.ObservabilityMetricSampleWhereInput = {
+      ...(tenantId ? { tenantId } : {}),
+      metricType,
+      ...(query.moduleName ? { moduleName: query.moduleName } : {}),
+    };
+    const aggregate = await this.prisma.observabilityMetricSample.aggregate({
+      where,
+      _count: { _all: true },
+      _sum: { value: true },
+      _avg: { value: true, durationMs: true },
+    });
+    return new ObservabilityMetricSummaryEntity({
+      metricType,
+      totalSamples: aggregate._count._all,
+      totalValue: aggregate._sum.value ?? 0,
+      averageValue: aggregate._avg.value ?? 0,
+      averageDurationMs: aggregate._avg.durationMs ?? null,
+    });
+  }
+
   private async evaluateProvider(provider: {
     id: string;
     tenantId: string | null;
@@ -375,6 +574,29 @@ export class ObservabilityService {
       },
     });
     if (provider) throw new ConflictException('Health provider already exists');
+  }
+
+  private async ensureMetricDefinitionExists(id: string) {
+    const definition = await this.prisma.observabilityMetricDefinition.findFirst({
+      where: this.softDelete.activeWhere({ id }),
+    });
+    if (!definition) throw new NotFoundException('Metric definition not found');
+    return definition;
+  }
+
+  private async ensureMetricDefinitionUnique(
+    tenantId: string | null,
+    code: string,
+    excludeId?: string,
+  ) {
+    const definition = await this.prisma.observabilityMetricDefinition.findFirst({
+      where: {
+        tenantId,
+        code,
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
+    });
+    if (definition) throw new ConflictException('Metric definition already exists');
   }
 
   private toJson(value: unknown): Prisma.InputJsonValue | undefined {

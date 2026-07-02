@@ -538,6 +538,23 @@ enum ObservabilityProviderStatus {
   ARCHIVED
 }
 
+enum ObservabilityMetricType {
+  HTTP
+  DATABASE
+  WORKFLOW
+  PAYROLL
+  BUSINESS_RULES
+  CUSTOM
+}
+
+enum ObservabilityMetricUnit {
+  COUNT
+  MILLISECONDS
+  PERCENT
+  BYTES
+  VALUE
+}
+
 enum RecruitmentStatus {
   ACTIVE
   INACTIVE
@@ -881,27 +898,29 @@ model Tenant {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
-  companies              Company[]
-  branches               Branch[]
-  domains                TenantDomain[]
-  settings               TenantSetting[]
-  flags                  TenantFeatureFlag[]
-  locales                TenantLocalization[]
-  branding               TenantBranding?
-  limits                 TenantUsageLimit[]
-  events                 TenantProvisioningEvent[]
-  policies               TenantPermissionPolicy[]
-  audits                 TenantAuditEvent[]
-  apiGroups              PublicApiGroup[]
-  apis                   PublicApiRegistry[]
-  apiApplications        PublicApiApplication[]
-  apiKeys                PublicApiKey[]
-  apiRateLimitPolicies   PublicApiRateLimitPolicy[]
-  apiUsageCounters       PublicApiUsageCounter[]
-  apiRequestLogs         PublicApiRequestLog[]
-  apiSignatureNonces     PublicApiSignatureNonce[]
-  observabilityProviders ObservabilityHealthProvider[]
-  observabilityChecks    ObservabilityHealthCheckResult[]
+  companies                      Company[]
+  branches                       Branch[]
+  domains                        TenantDomain[]
+  settings                       TenantSetting[]
+  flags                          TenantFeatureFlag[]
+  locales                        TenantLocalization[]
+  branding                       TenantBranding?
+  limits                         TenantUsageLimit[]
+  events                         TenantProvisioningEvent[]
+  policies                       TenantPermissionPolicy[]
+  audits                         TenantAuditEvent[]
+  apiGroups                      PublicApiGroup[]
+  apis                           PublicApiRegistry[]
+  apiApplications                PublicApiApplication[]
+  apiKeys                        PublicApiKey[]
+  apiRateLimitPolicies           PublicApiRateLimitPolicy[]
+  apiUsageCounters               PublicApiUsageCounter[]
+  apiRequestLogs                 PublicApiRequestLog[]
+  apiSignatureNonces             PublicApiSignatureNonce[]
+  observabilityProviders         ObservabilityHealthProvider[]
+  observabilityChecks            ObservabilityHealthCheckResult[]
+  observabilityMetricDefinitions ObservabilityMetricDefinition[]
+  observabilityMetricSamples     ObservabilityMetricSample[]
 
   @@index([code])
   @@index([status])
@@ -1428,6 +1447,64 @@ model ObservabilityHealthCheckResult {
   @@index([moduleName])
   @@index([status])
   @@index([checkedAt])
+}
+
+model ObservabilityMetricDefinition {
+  id          String                      @id @default(cuid())
+  tenantId    String?
+  code        String
+  name        String
+  moduleName  String
+  metricType  ObservabilityMetricType
+  unit        ObservabilityMetricUnit     @default(VALUE)
+  status      ObservabilityProviderStatus @default(ACTIVE)
+  metadata    Json?
+  deletedAt   DateTime?
+  deletedById String?
+  createdById String?
+  updatedById String?
+  createdAt   DateTime                    @default(now())
+  updatedAt   DateTime                    @updatedAt
+
+  tenant  Tenant?                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  samples ObservabilityMetricSample[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([code])
+  @@index([moduleName])
+  @@index([metricType])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model ObservabilityMetricSample {
+  id           String                  @id @default(cuid())
+  tenantId     String?
+  definitionId String?
+  metricType   ObservabilityMetricType
+  moduleName   String
+  metricName   String
+  value        Float
+  unit         ObservabilityMetricUnit @default(VALUE)
+  endpoint     String?
+  statusCode   Int?
+  durationMs   Int?
+  labels       Json?
+  recordedAt   DateTime                @default(now())
+  createdAt    DateTime                @default(now())
+
+  tenant     Tenant?                        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  definition ObservabilityMetricDefinition? @relation(fields: [definitionId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([definitionId])
+  @@index([metricType])
+  @@index([moduleName])
+  @@index([metricName])
+  @@index([endpoint])
+  @@index([statusCode])
+  @@index([recordedAt])
 }
 
 model Account {

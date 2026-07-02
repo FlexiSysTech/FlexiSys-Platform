@@ -19,6 +19,12 @@ import {
   RunHealthCheckDto,
   UpdateObservabilityHealthProviderDto,
 } from './dto/observability-core.dto';
+import {
+  CreateMetricDefinitionDto,
+  ObservabilityMetricQueryDto,
+  RecordMetricSampleDto,
+  UpdateMetricDefinitionDto,
+} from './dto/observability-metrics.dto';
 import { ObservabilityService } from './observability.service';
 
 @ApiTags('Observability')
@@ -92,5 +98,96 @@ export class ObservabilityController {
   @ApiOperation({ summary: 'Get health check results' })
   findHealthCheckResults(@Query() query: HealthCheckResultQueryDto) {
     return this.service.findHealthCheckResults(query);
+  }
+
+  @Get('metrics/definitions')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.OBSERVABILITY_READ)
+  @ApiOperation({ summary: 'Get metric definitions' })
+  findMetricDefinitions(@Query() query: ObservabilityMetricQueryDto) {
+    return this.service.findMetricDefinitions(query);
+  }
+
+  @Post('metrics/definitions')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.OBSERVABILITY_CREATE)
+  @ApiOperation({ summary: 'Create metric definition' })
+  createMetricDefinition(@Body() dto: CreateMetricDefinitionDto) {
+    return this.service.createMetricDefinition(dto);
+  }
+
+  @Patch('metrics/definitions/:id')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.OBSERVABILITY_UPDATE)
+  @ApiOperation({ summary: 'Update metric definition' })
+  updateMetricDefinition(
+    @Param('id') id: string,
+    @Body() dto: UpdateMetricDefinitionDto,
+  ) {
+    return this.service.updateMetricDefinition(id, dto);
+  }
+
+  @Delete('metrics/definitions/:id')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.OBSERVABILITY_DELETE)
+  @ApiOperation({ summary: 'Soft delete metric definition' })
+  removeMetricDefinition(@Param('id') id: string) {
+    return this.service.removeMetricDefinition(id);
+  }
+
+  @Get('metrics/samples')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.OBSERVABILITY_READ)
+  @ApiOperation({ summary: 'Get metric samples' })
+  findMetricSamples(@Query() query: ObservabilityMetricQueryDto) {
+    return this.service.findMetricSamples(query);
+  }
+
+  @Post('metrics/samples')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.OBSERVABILITY_CREATE)
+  @ApiOperation({ summary: 'Record metric sample' })
+  recordMetricSample(@Body() dto: RecordMetricSampleDto) {
+    return this.service.recordMetricSample(dto);
+  }
+
+  @Get('metrics/http')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.OBSERVABILITY_READ)
+  @ApiOperation({ summary: 'Get HTTP metrics summary' })
+  getHttpMetrics(@Query() query: ObservabilityMetricQueryDto) {
+    return this.service.getHttpMetrics(query);
+  }
+
+  @Get('metrics/database')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.OBSERVABILITY_READ)
+  @ApiOperation({ summary: 'Get database metrics summary' })
+  getDatabaseMetrics(@Query() query: ObservabilityMetricQueryDto) {
+    return this.service.getDatabaseMetrics(query);
+  }
+
+  @Get('metrics/workflow')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.OBSERVABILITY_READ)
+  @ApiOperation({ summary: 'Get workflow metrics summary' })
+  getWorkflowMetrics(@Query() query: ObservabilityMetricQueryDto) {
+    return this.service.getWorkflowMetrics(query);
+  }
+
+  @Get('metrics/payroll')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.OBSERVABILITY_READ)
+  @ApiOperation({ summary: 'Get payroll metrics summary' })
+  getPayrollMetrics(@Query() query: ObservabilityMetricQueryDto) {
+    return this.service.getPayrollMetrics(query);
+  }
+
+  @Get('metrics/business-rules')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.OBSERVABILITY_READ)
+  @ApiOperation({ summary: 'Get business rules metrics summary' })
+  getBusinessRulesMetrics(@Query() query: ObservabilityMetricQueryDto) {
+    return this.service.getBusinessRulesMetrics(query);
   }
 }
