@@ -18,6 +18,12 @@ import {
   RotatePublicApiKeyDto,
 } from './dto/public-api-keys.dto';
 import {
+  CreatePublicApiRateLimitPolicyDto,
+  EvaluatePublicApiRateLimitDto,
+  PublicApiRateLimitQueryDto,
+  UpdatePublicApiRateLimitPolicyDto,
+} from './dto/public-api-rate-limits.dto';
+import {
   CreatePublicApiDto,
   CreatePublicApiGroupDto,
   CreatePublicApiVersionDto,
@@ -152,5 +158,56 @@ export class PublicApiController {
   @ApiOperation({ summary: 'Revoke public API key' })
   revokeKey(@Param('id') id: string) {
     return this.service.revokeKey(id);
+  }
+
+  @Get('rate-limits/policies')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PUBLIC_API_ADMIN)
+  @ApiOperation({ summary: 'Get public API rate limit policies' })
+  findRateLimitPolicies(@Query() query: PublicApiRateLimitQueryDto) {
+    return this.service.findRateLimitPolicies(query);
+  }
+
+  @Post('rate-limits/policies')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PUBLIC_API_ADMIN)
+  @ApiOperation({ summary: 'Create public API rate limit policy' })
+  createRateLimitPolicy(@Body() dto: CreatePublicApiRateLimitPolicyDto) {
+    return this.service.createRateLimitPolicy(dto);
+  }
+
+  @Patch('rate-limits/policies/:id')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PUBLIC_API_ADMIN)
+  @ApiOperation({ summary: 'Update public API rate limit policy' })
+  updateRateLimitPolicy(
+    @Param('id') id: string,
+    @Body() dto: UpdatePublicApiRateLimitPolicyDto,
+  ) {
+    return this.service.updateRateLimitPolicy(id, dto);
+  }
+
+  @Delete('rate-limits/policies/:id')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PUBLIC_API_ADMIN)
+  @ApiOperation({ summary: 'Soft delete public API rate limit policy' })
+  removeRateLimitPolicy(@Param('id') id: string) {
+    return this.service.removeRateLimitPolicy(id);
+  }
+
+  @Post('rate-limits/evaluate')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PUBLIC_API_ADMIN)
+  @ApiOperation({ summary: 'Evaluate and record public API rate limit usage' })
+  evaluateRateLimit(@Body() dto: EvaluatePublicApiRateLimitDto) {
+    return this.service.evaluateRateLimit(dto);
+  }
+
+  @Get('rate-limits/usage')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PUBLIC_API_READ)
+  @ApiOperation({ summary: 'Get public API usage counters' })
+  findUsageCounters(@Query() query: PublicApiRateLimitQueryDto) {
+    return this.service.findUsageCounters(query);
   }
 }

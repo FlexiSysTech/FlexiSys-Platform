@@ -509,6 +509,13 @@ enum PublicApiKeyStatus {
   ROTATED
 }
 
+enum PublicApiRateLimitWindow {
+  MINUTE
+  HOUR
+  DAY
+  MONTH
+}
+
 enum RecruitmentStatus {
   ACTIVE
   INACTIVE
@@ -852,21 +859,23 @@ model Tenant {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
-  companies       Company[]
-  branches        Branch[]
-  domains         TenantDomain[]
-  settings        TenantSetting[]
-  flags           TenantFeatureFlag[]
-  locales         TenantLocalization[]
-  branding        TenantBranding?
-  limits          TenantUsageLimit[]
-  events          TenantProvisioningEvent[]
-  policies        TenantPermissionPolicy[]
-  audits          TenantAuditEvent[]
-  apiGroups       PublicApiGroup[]
-  apis            PublicApiRegistry[]
-  apiApplications PublicApiApplication[]
-  apiKeys         PublicApiKey[]
+  companies            Company[]
+  branches             Branch[]
+  domains              TenantDomain[]
+  settings             TenantSetting[]
+  flags                TenantFeatureFlag[]
+  locales              TenantLocalization[]
+  branding             TenantBranding?
+  limits               TenantUsageLimit[]
+  events               TenantProvisioningEvent[]
+  policies             TenantPermissionPolicy[]
+  audits               TenantAuditEvent[]
+  apiGroups            PublicApiGroup[]
+  apis                 PublicApiRegistry[]
+  apiApplications      PublicApiApplication[]
+  apiKeys              PublicApiKey[]
+  apiRateLimitPolicies PublicApiRateLimitPolicy[]
+  apiUsageCounters     PublicApiUsageCounter[]
 
   @@index([code])
   @@index([status])
@@ -1125,9 +1134,11 @@ model PublicApiRegistry {
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
 
-  tenant   Tenant?            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  group    PublicApiGroup?    @relation(fields: [groupId], references: [id], onDelete: SetNull)
-  versions PublicApiVersion[]
+  tenant            Tenant?                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  group             PublicApiGroup?            @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  versions          PublicApiVersion[]
+  rateLimitPolicies PublicApiRateLimitPolicy[]
+  usageCounters     PublicApiUsageCounter[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -1184,8 +1195,10 @@ model PublicApiApplication {
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
 
-  tenant Tenant?        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  keys   PublicApiKey[]
+  tenant            Tenant?                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  keys              PublicApiKey[]
+  rateLimitPolicies PublicApiRateLimitPolicy[]
+  usageCounters     PublicApiUsageCounter[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -1225,6 +1238,63 @@ model PublicApiKey {
   @@index([expiresAt])
   @@index([lastUsedAt])
   @@index([deletedAt])
+}
+
+model PublicApiRateLimitPolicy {
+  id            String                   @id @default(cuid())
+  tenantId      String?
+  applicationId String?
+  apiId         String?
+  endpoint      String?
+  name          String
+  limitValue    Int
+  window        PublicApiRateLimitWindow @default(MINUTE)
+  status        PublicApiStatus          @default(ACTIVE)
+  deletedAt     DateTime?
+  deletedById   String?
+  createdById   String?
+  updatedById   String?
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+
+  tenant      Tenant?               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  application PublicApiApplication? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  api         PublicApiRegistry?    @relation(fields: [apiId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([applicationId])
+  @@index([apiId])
+  @@index([endpoint])
+  @@index([window])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model PublicApiUsageCounter {
+  id            String                   @id @default(cuid())
+  counterKey    String                   @unique
+  tenantId      String?
+  applicationId String?
+  apiId         String?
+  endpoint      String?
+  window        PublicApiRateLimitWindow
+  windowStart   DateTime
+  windowEnd     DateTime
+  requestCount  Int                      @default(0)
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+
+  tenant      Tenant?               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  application PublicApiApplication? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  api         PublicApiRegistry?    @relation(fields: [apiId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([applicationId])
+  @@index([apiId])
+  @@index([endpoint])
+  @@index([window])
+  @@index([windowStart])
+  @@index([windowEnd])
 }
 
 model Account {
