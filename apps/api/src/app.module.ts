@@ -26,6 +26,7 @@ import { RecruitmentModule } from './recruitment/recruitment.module';
 import { ReportingModule } from './reporting/reporting.module';
 import { RolesModule } from './roles/roles.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
+import { SearchModule } from './search/search.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { UsersModule } from './users/users.module';
 import { WorkflowsModule } from './workflows/workflows.module';
@@ -60,6 +61,7 @@ import { WorkflowsModule } from './workflows/workflows.module';
     NotificationsModule,
     SchedulerModule,
     MobileModule,
+    SearchModule,
     WorkflowsModule,
   ],
 })

@@ -2099,27 +2099,27 @@ model MobileSyncChange {
 }
 
 model SearchIndex {
-  id            String            @id @default(cuid())
-  tenantId      String?
-  companyId     String?
-  branchId      String?
-  entityType    SearchEntityType
-  entityId      String
-  title         String
-  subtitle      String?
-  content       String?           @db.Text
-  keywords      String?           @db.Text
-  searchableText String           @db.Text
-  status        SearchIndexStatus @default(ACTIVE)
+  id              String            @id @default(cuid())
+  tenantId        String?
+  companyId       String?
+  branchId        String?
+  entityType      SearchEntityType
+  entityId        String
+  title           String
+  subtitle        String?
+  content         String?           @db.Text
+  keywords        String?           @db.Text
+  searchableText  String            @db.Text
+  status          SearchIndexStatus @default(ACTIVE)
   sourceUpdatedAt DateTime?
-  lastIndexedAt DateTime          @default(now())
-  metadata      Json?
-  deletedAt     DateTime?
-  deletedById   String?
-  createdById   String?
-  updatedById   String?
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+  lastIndexedAt   DateTime          @default(now())
+  metadata        Json?
+  deletedAt       DateTime?
+  deletedById     String?
+  createdById     String?
+  updatedById     String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 
   tenant  Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)

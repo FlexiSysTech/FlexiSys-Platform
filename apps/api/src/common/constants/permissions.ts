@@ -151,6 +151,14 @@ export const Permission = {
   MOBILE_PUSH: 'mobile.push',
   MOBILE_SYNC: 'mobile.sync',
   MOBILE_SESSIONS: 'mobile.sessions',
+
+  SEARCH_READ: 'search.read',
+  SEARCH_GLOBAL: 'search.global',
+  SEARCH_EMPLOYEES: 'search.employees',
+  SEARCH_PAYROLL: 'search.payroll',
+  SEARCH_DOCUMENTS: 'search.documents',
+  SEARCH_WORKFLOWS: 'search.workflows',
+  SEARCH_ADMIN: 'search.admin',
 } as const;
 
 export type PermissionCode = (typeof Permission)[keyof typeof Permission];
