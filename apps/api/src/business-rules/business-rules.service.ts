@@ -13,10 +13,18 @@ import { SoftDeleteService } from '../platform/soft-delete';
 import { StatusTransitionService } from '../platform/status-transitions';
 import { PrismaService } from '../prisma/prisma.service';
 import { BusinessRuleQueryDto } from './dto/business-rule-query.dto';
+import { CreateBusinessRuleActionDto } from './dto/create-business-rule-action.dto';
 import { CreateBusinessRuleCategoryDto } from './dto/create-business-rule-category.dto';
+import { CreateBusinessRuleConditionDto } from './dto/create-business-rule-condition.dto';
 import { CreateBusinessRuleDto } from './dto/create-business-rule.dto';
+import { UpdateBusinessRuleActionDto } from './dto/update-business-rule-action.dto';
 import { UpdateBusinessRuleCategoryDto } from './dto/update-business-rule-category.dto';
+import { UpdateBusinessRuleConditionDto } from './dto/update-business-rule-condition.dto';
 import { UpdateBusinessRuleDto } from './dto/update-business-rule.dto';
+import {
+  BusinessRuleActionEntity,
+  BusinessRuleConditionEntity,
+} from './entities/business-rule-component.entity';
 import {
   BusinessRuleCategoryEntity,
   BusinessRuleEntity,
@@ -324,6 +332,192 @@ export class BusinessRulesService {
     return { success: true, deletedRule: new BusinessRuleEntity(result.record) };
   }
 
+  async findConditions(ruleId: string, query: BusinessRuleQueryDto) {
+    await this.ensureRuleExists(ruleId);
+    const where: Prisma.BusinessRuleConditionWhereInput =
+      this.softDelete.activeWhere({ ruleId });
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.businessRuleCondition.findMany({
+        where,
+        orderBy: [{ displayOrder: 'asc' }, { field: 'asc' }],
+        ...this.pagination.getSkipTake(query),
+      }),
+      this.prisma.businessRuleCondition.count({ where }),
+    ]);
+
+    return this.pagination.buildResponse(
+      items.map((item) => new BusinessRuleConditionEntity(item)),
+      total,
+      query,
+    );
+  }
+
+  async createCondition(ruleId: string, dto: CreateBusinessRuleConditionDto) {
+    await this.ensureRuleExists(ruleId);
+    const item = await this.prisma.businessRuleCondition.create({
+      data: {
+        ruleId,
+        field: dto.field,
+        operator: dto.operator,
+        value: this.toJson(dto.value),
+        logicalOperator: dto.logicalOperator ?? 'AND',
+        groupKey: dto.groupKey,
+        displayOrder: dto.displayOrder ?? 0,
+      },
+    });
+
+    await this.audit.record({
+      action: 'BUSINESS_RULE_CONDITION_CREATE',
+      entity: 'BusinessRuleCondition',
+      entityId: item.id,
+      payload: { ruleId, field: item.field, operator: item.operator },
+    });
+
+    return new BusinessRuleConditionEntity(item);
+  }
+
+  async updateCondition(
+    ruleId: string,
+    conditionId: string,
+    dto: UpdateBusinessRuleConditionDto,
+  ) {
+    await this.ensureRuleExists(ruleId);
+    const current = await this.ensureConditionExists(ruleId, conditionId);
+    const item = await this.prisma.businessRuleCondition.update({
+      where: { id: conditionId },
+      data: {
+        field: dto.field,
+        operator: dto.operator,
+        value: dto.value === undefined ? undefined : this.toJson(dto.value),
+        logicalOperator: dto.logicalOperator,
+        groupKey: dto.groupKey,
+        displayOrder: dto.displayOrder,
+      },
+    });
+
+    await this.audit.record({
+      action: 'BUSINESS_RULE_CONDITION_UPDATE',
+      entity: 'BusinessRuleCondition',
+      entityId: item.id,
+      payload: { before: current, after: item } as Prisma.InputJsonObject,
+    });
+
+    return new BusinessRuleConditionEntity(item);
+  }
+
+  async removeCondition(ruleId: string, conditionId: string) {
+    await this.ensureRuleExists(ruleId);
+    await this.ensureConditionExists(ruleId, conditionId);
+    const result = await this.softDelete.softDelete(
+      this.prisma.businessRuleCondition as never,
+      conditionId,
+    );
+
+    await this.audit.record({
+      action: 'BUSINESS_RULE_CONDITION_DELETE',
+      entity: 'BusinessRuleCondition',
+      entityId: conditionId,
+      payload: { ruleId, deleted: true },
+    });
+
+    return {
+      success: true,
+      deletedCondition: new BusinessRuleConditionEntity(result.record),
+    };
+  }
+
+  async findActions(ruleId: string, query: BusinessRuleQueryDto) {
+    await this.ensureRuleExists(ruleId);
+    const where: Prisma.BusinessRuleActionWhereInput =
+      this.softDelete.activeWhere({ ruleId });
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.businessRuleAction.findMany({
+        where,
+        orderBy: [{ displayOrder: 'asc' }, { type: 'asc' }],
+        ...this.pagination.getSkipTake(query),
+      }),
+      this.prisma.businessRuleAction.count({ where }),
+    ]);
+
+    return this.pagination.buildResponse(
+      items.map((item) => new BusinessRuleActionEntity(item)),
+      total,
+      query,
+    );
+  }
+
+  async createAction(ruleId: string, dto: CreateBusinessRuleActionDto) {
+    await this.ensureRuleExists(ruleId);
+    const item = await this.prisma.businessRuleAction.create({
+      data: {
+        ruleId,
+        type: dto.type,
+        target: dto.target,
+        value: this.toJson(dto.value),
+        message: dto.message,
+        displayOrder: dto.displayOrder ?? 0,
+      },
+    });
+
+    await this.audit.record({
+      action: 'BUSINESS_RULE_ACTION_CREATE',
+      entity: 'BusinessRuleAction',
+      entityId: item.id,
+      payload: { ruleId, type: item.type, target: item.target },
+    });
+
+    return new BusinessRuleActionEntity(item);
+  }
+
+  async updateAction(
+    ruleId: string,
+    actionId: string,
+    dto: UpdateBusinessRuleActionDto,
+  ) {
+    await this.ensureRuleExists(ruleId);
+    const current = await this.ensureActionExists(ruleId, actionId);
+    const item = await this.prisma.businessRuleAction.update({
+      where: { id: actionId },
+      data: {
+        type: dto.type,
+        target: dto.target,
+        value: dto.value === undefined ? undefined : this.toJson(dto.value),
+        message: dto.message,
+        displayOrder: dto.displayOrder,
+      },
+    });
+
+    await this.audit.record({
+      action: 'BUSINESS_RULE_ACTION_UPDATE',
+      entity: 'BusinessRuleAction',
+      entityId: item.id,
+      payload: { before: current, after: item } as Prisma.InputJsonObject,
+    });
+
+    return new BusinessRuleActionEntity(item);
+  }
+
+  async removeAction(ruleId: string, actionId: string) {
+    await this.ensureRuleExists(ruleId);
+    await this.ensureActionExists(ruleId, actionId);
+    const result = await this.softDelete.softDelete(
+      this.prisma.businessRuleAction as never,
+      actionId,
+    );
+
+    await this.audit.record({
+      action: 'BUSINESS_RULE_ACTION_DELETE',
+      entity: 'BusinessRuleAction',
+      entityId: actionId,
+      payload: { ruleId, deleted: true },
+    });
+
+    return {
+      success: true,
+      deletedAction: new BusinessRuleActionEntity(result.record),
+    };
+  }
+
   private async resolveCompanyId(companyId?: string): Promise<string | null> {
     const resolved = companyId ?? this.context.getCompanyId();
     if (!resolved) return null;
@@ -364,6 +558,31 @@ export class BusinessRulesService {
     });
     if (!category) throw new NotFoundException('Business rule category not found');
     return category;
+  }
+
+  private async ensureRuleExists(id: string) {
+    const rule = await this.prisma.businessRule.findFirst({
+      where: this.softDelete.activeWhere({ id }),
+      select: { id: true },
+    });
+    if (!rule) throw new NotFoundException('Business rule not found');
+    return rule;
+  }
+
+  private async ensureConditionExists(ruleId: string, id: string) {
+    const condition = await this.prisma.businessRuleCondition.findFirst({
+      where: this.softDelete.activeWhere({ id, ruleId }),
+    });
+    if (!condition) throw new NotFoundException('Business rule condition not found');
+    return condition;
+  }
+
+  private async ensureActionExists(ruleId: string, id: string) {
+    const action = await this.prisma.businessRuleAction.findFirst({
+      where: this.softDelete.activeWhere({ id, ruleId }),
+    });
+    if (!action) throw new NotFoundException('Business rule action not found');
+    return action;
   }
 
   private async ensureCategoryCodeUnique(

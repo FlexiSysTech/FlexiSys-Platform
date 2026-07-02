@@ -1940,6 +1940,8 @@ model BusinessRuleCondition {
   logicalOperator BusinessRuleLogicalOperator   @default(AND)
   groupKey        String?
   displayOrder    Int                           @default(0)
+  deletedAt       DateTime?
+  deletedById     String?
   createdAt       DateTime                      @default(now())
   updatedAt       DateTime                      @updatedAt
 
@@ -1949,6 +1951,7 @@ model BusinessRuleCondition {
   @@index([field])
   @@index([operator])
   @@index([displayOrder])
+  @@index([deletedAt])
 }
 
 model BusinessRuleAction {
@@ -1959,6 +1962,8 @@ model BusinessRuleAction {
   value        Json?
   message      String?
   displayOrder Int                    @default(0)
+  deletedAt    DateTime?
+  deletedById  String?
   createdAt    DateTime               @default(now())
   updatedAt    DateTime               @updatedAt
 
@@ -1967,6 +1972,7 @@ model BusinessRuleAction {
   @@index([ruleId])
   @@index([type])
   @@index([displayOrder])
+  @@index([deletedAt])
 }
 
 model BusinessRuleExecution {
