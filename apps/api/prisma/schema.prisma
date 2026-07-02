@@ -1744,9 +1744,10 @@ model SchedulerScheduledJob {
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
 
-  tenant    Tenant?                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  cron      SchedulerCronRegistry? @relation(fields: [cronId], references: [id], onDelete: SetNull)
-  histories SchedulerJobHistory[]
+  tenant     Tenant?                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  cron       SchedulerCronRegistry?     @relation(fields: [cronId], references: [id], onDelete: SetNull)
+  histories  SchedulerJobHistory[]
+  recoveries SchedulerFailureRecovery[]
 
   @@index([tenantId])
   @@index([cronId])
@@ -1781,9 +1782,10 @@ model SchedulerJobHistory {
   actorId    String?
   createdAt  DateTime           @default(now())
 
-  tenant Tenant?                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  job    SchedulerScheduledJob? @relation(fields: [jobId], references: [id], onDelete: SetNull)
-  cron   SchedulerCronRegistry? @relation(fields: [cronId], references: [id], onDelete: SetNull)
+  tenant     Tenant?                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  job        SchedulerScheduledJob?     @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  cron       SchedulerCronRegistry?     @relation(fields: [cronId], references: [id], onDelete: SetNull)
+  recoveries SchedulerFailureRecovery[]
 
   @@index([tenantId])
   @@index([jobId])
@@ -1793,6 +1795,35 @@ model SchedulerJobHistory {
   @@index([status])
   @@index([startedAt])
   @@index([finishedAt])
+  @@index([createdAt])
+}
+
+model SchedulerFailureRecovery {
+  id          String                  @id @default(cuid())
+  tenantId    String?
+  jobId       String?
+  historyId   String?
+  action      SchedulerRecoveryAction
+  status      SchedulerRecoveryStatus @default(PENDING)
+  reason      String?
+  payload     Json?
+  appliedAt   DateTime?
+  error       String?
+  createdById String?
+  updatedById String?
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  tenant  Tenant?                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  job     SchedulerScheduledJob? @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  history SchedulerJobHistory?   @relation(fields: [historyId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([jobId])
+  @@index([historyId])
+  @@index([action])
+  @@index([status])
+  @@index([appliedAt])
   @@index([createdAt])
 }
 

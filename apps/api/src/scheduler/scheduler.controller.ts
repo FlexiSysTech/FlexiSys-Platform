@@ -19,6 +19,13 @@ import {
   UpdateCronRegistryDto,
   UpdateScheduledJobDto,
 } from './dto/scheduler-core.dto';
+import {
+  ClaimSchedulerJobsDto,
+  CompleteSchedulerJobDto,
+  FailSchedulerJobDto,
+  RecoverSchedulerJobDto,
+  SchedulerRecoveryQueryDto,
+} from './dto/scheduler-retry.dto';
 import { SchedulerService } from './scheduler.service';
 
 @ApiTags('Scheduler')
@@ -97,5 +104,56 @@ export class SchedulerController {
   @ApiOperation({ summary: 'Get scheduler job history' })
   findHistory(@Query() query: SchedulerQueryDto) {
     return this.service.findHistory(query);
+  }
+
+  @Post('queue/claim')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.SCHEDULER_EXECUTE)
+  @ApiOperation({ summary: 'Claim due scheduler jobs for a worker' })
+  claimDueJobs(@Body() dto: ClaimSchedulerJobsDto) {
+    return this.service.claimDueJobs(dto);
+  }
+
+  @Post('jobs/:id/complete')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.SCHEDULER_EXECUTE)
+  @ApiOperation({ summary: 'Complete a running scheduler job' })
+  completeJob(
+    @Param('id') id: string,
+    @Body() dto: CompleteSchedulerJobDto,
+  ) {
+    return this.service.completeJob(id, dto);
+  }
+
+  @Post('jobs/:id/fail')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.SCHEDULER_EXECUTE)
+  @ApiOperation({ summary: 'Fail a running scheduler job and apply retry policy' })
+  failJob(@Param('id') id: string, @Body() dto: FailSchedulerJobDto) {
+    return this.service.failJob(id, dto);
+  }
+
+  @Post('jobs/:id/retry')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.SCHEDULER_EXECUTE)
+  @ApiOperation({ summary: 'Retry a failed or dead-letter scheduler job' })
+  retryJob(@Param('id') id: string) {
+    return this.service.retryJob(id);
+  }
+
+  @Post('jobs/:id/recover')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.SCHEDULER_EXECUTE)
+  @ApiOperation({ summary: 'Apply failure recovery action to a scheduler job' })
+  recoverJob(@Param('id') id: string, @Body() dto: RecoverSchedulerJobDto) {
+    return this.service.recoverJob(id, dto);
+  }
+
+  @Get('recoveries')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.SCHEDULER_MONITOR)
+  @ApiOperation({ summary: 'Get scheduler failure recovery records' })
+  findRecoveries(@Query() query: SchedulerRecoveryQueryDto) {
+    return this.service.findRecoveries(query);
   }
 }

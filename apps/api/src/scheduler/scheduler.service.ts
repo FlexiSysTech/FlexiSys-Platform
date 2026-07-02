@@ -7,6 +7,7 @@ import {
 import {
   Prisma,
   SchedulerJobStatus,
+  SchedulerRecoveryAction,
   SchedulerRunStatus,
   SchedulerTaskType,
 } from '@prisma/client';
@@ -26,10 +27,21 @@ import {
   UpdateScheduledJobDto,
 } from './dto/scheduler-core.dto';
 import {
+  ClaimSchedulerJobsDto,
+  CompleteSchedulerJobDto,
+  FailSchedulerJobDto,
+  RecoverSchedulerJobDto,
+  SchedulerRecoveryQueryDto,
+} from './dto/scheduler-retry.dto';
+import {
   SchedulerCronRegistryEntity,
   SchedulerJobHistoryEntity,
   SchedulerScheduledJobEntity,
 } from './entities/scheduler-core.entity';
+import {
+  SchedulerFailureRecoveryEntity,
+  SchedulerQueueClaimEntity,
+} from './entities/scheduler-retry.entity';
 
 @Injectable()
 export class SchedulerService {
@@ -41,8 +53,9 @@ export class SchedulerService {
   private readonly jobStatusRules = [
     { from: 'PENDING' as SchedulerRunStatus, to: ['QUEUED', 'RUNNING', 'CANCELLED'] as SchedulerRunStatus[] },
     { from: 'QUEUED' as SchedulerRunStatus, to: ['RUNNING', 'CANCELLED'] as SchedulerRunStatus[] },
-    { from: 'RUNNING' as SchedulerRunStatus, to: ['SUCCEEDED', 'FAILED', 'RETRY_SCHEDULED', 'CANCELLED'] as SchedulerRunStatus[] },
+    { from: 'RUNNING' as SchedulerRunStatus, to: ['SUCCEEDED', 'FAILED', 'RETRY_SCHEDULED', 'CANCELLED', 'DEAD_LETTER'] as SchedulerRunStatus[] },
     { from: 'FAILED' as SchedulerRunStatus, to: ['RETRY_SCHEDULED', 'DEAD_LETTER'] as SchedulerRunStatus[] },
+    { from: 'DEAD_LETTER' as SchedulerRunStatus, to: ['RETRY_SCHEDULED'] as SchedulerRunStatus[] },
     { from: 'RETRY_SCHEDULED' as SchedulerRunStatus, to: ['QUEUED', 'RUNNING', 'CANCELLED'] as SchedulerRunStatus[] },
   ];
 
@@ -331,6 +344,298 @@ export class SchedulerService {
     );
   }
 
+  async claimDueJobs(dto: ClaimSchedulerJobsDto) {
+    const tenantId = await this.resolveTenantId(dto.tenantId);
+    const now = new Date();
+    const limit = dto.limit ?? 10;
+    const jobs = await this.prisma.$transaction(async (tx) => {
+      const dueJobs = await tx.schedulerScheduledJob.findMany({
+        where: this.softDelete.activeWhere({
+          ...(tenantId ? { tenantId } : {}),
+          ...(dto.queueName ? { queueName: dto.queueName } : {}),
+          status: { in: ['PENDING', 'QUEUED', 'RETRY_SCHEDULED'] },
+          runAt: { lte: now },
+          OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
+        }),
+        orderBy: [{ priority: 'desc' }, { runAt: 'asc' }],
+        take: limit,
+      });
+
+      const claimed: SchedulerScheduledJobEntity[] = [];
+      for (const job of dueJobs) {
+        const updated = await tx.schedulerScheduledJob.update({
+          where: { id: job.id },
+          data: {
+            status: 'RUNNING',
+            lockedAt: now,
+            lockedBy: dto.workerId,
+            attempts: { increment: 1 },
+            updatedById: this.context.getUserId(),
+          },
+        });
+        await tx.schedulerJobHistory.create({
+          data: this.buildHistoryData(updated, 'RUNNING'),
+        });
+        claimed.push(new SchedulerScheduledJobEntity(updated));
+      }
+
+      return claimed;
+    });
+
+    await this.audit.record({
+      action: 'SCHEDULER_QUEUE_CLAIM',
+      entity: 'SchedulerScheduledJob',
+      entityId: dto.workerId,
+      payload: {
+        tenantId,
+        queueName: dto.queueName ?? 'all',
+        claimed: jobs.length,
+      },
+    });
+
+    return new SchedulerQueueClaimEntity({ claimed: jobs.length, jobs });
+  }
+
+  async completeJob(id: string, dto: CompleteSchedulerJobDto) {
+    const current = await this.ensureJobExists(id);
+    this.transitions.assertTransition({
+      entity: 'SchedulerScheduledJob',
+      currentStatus: current.status,
+      nextStatus: 'SUCCEEDED',
+      rules: this.jobStatusRules,
+    });
+
+    const job = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.schedulerScheduledJob.update({
+        where: { id },
+        data: {
+          status: 'SUCCEEDED',
+          completedAt: new Date(),
+          lockedAt: null,
+          lockedBy: null,
+          error: null,
+          metadata: dto.result === undefined ? undefined : this.toJson(dto.result),
+          updatedById: this.context.getUserId(),
+        },
+      });
+      await tx.schedulerJobHistory.create({
+        data: this.buildHistoryData(updated, 'SUCCEEDED'),
+      });
+      return updated;
+    });
+
+    await this.audit.record({
+      action: 'SCHEDULER_JOB_COMPLETE',
+      entity: 'SchedulerScheduledJob',
+      entityId: id,
+      payload: { jobKey: job.jobKey, taskName: job.taskName },
+    });
+
+    return new SchedulerScheduledJobEntity(job);
+  }
+
+  async failJob(id: string, dto: FailSchedulerJobDto) {
+    const current = await this.ensureJobExists(id);
+    const canRetry =
+      dto.retry !== false &&
+      current.retryStrategy !== 'NONE' &&
+      current.attempts < current.maxAttempts;
+    const nextStatus: SchedulerRunStatus = canRetry ? 'RETRY_SCHEDULED' : 'DEAD_LETTER';
+    this.transitions.assertTransition({
+      entity: 'SchedulerScheduledJob',
+      currentStatus: current.status,
+      nextStatus,
+      rules: this.jobStatusRules,
+    });
+    const nextAttemptAt = canRetry ? this.calculateNextAttempt(current) : null;
+
+    const job = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.schedulerScheduledJob.update({
+        where: { id },
+        data: {
+          status: nextStatus,
+          nextAttemptAt,
+          failedAt: new Date(),
+          lockedAt: null,
+          lockedBy: null,
+          error: dto.error,
+          updatedById: this.context.getUserId(),
+        },
+      });
+      await tx.schedulerJobHistory.create({
+        data: this.buildHistoryData(updated, nextStatus, dto.error),
+      });
+      return updated;
+    });
+
+    await this.audit.record({
+      action: 'SCHEDULER_JOB_FAIL',
+      entity: 'SchedulerScheduledJob',
+      entityId: id,
+      payload: {
+        jobKey: job.jobKey,
+        status: job.status,
+        retryScheduled: canRetry,
+        nextAttemptAt,
+      },
+    });
+
+    return new SchedulerScheduledJobEntity(job);
+  }
+
+  async retryJob(id: string) {
+    const current = await this.ensureJobExists(id);
+    this.transitions.assertTransition({
+      entity: 'SchedulerScheduledJob',
+      currentStatus: current.status,
+      nextStatus: 'RETRY_SCHEDULED',
+      rules: this.jobStatusRules,
+    });
+
+    const job = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.schedulerScheduledJob.update({
+        where: { id },
+        data: {
+          status: 'RETRY_SCHEDULED',
+          nextAttemptAt: new Date(),
+          failedAt: null,
+          lockedAt: null,
+          lockedBy: null,
+          error: null,
+          updatedById: this.context.getUserId(),
+        },
+      });
+      await tx.schedulerJobHistory.create({
+        data: this.buildHistoryData(updated, 'RETRY_SCHEDULED'),
+      });
+      return updated;
+    });
+
+    await this.audit.record({
+      action: 'SCHEDULER_JOB_RETRY',
+      entity: 'SchedulerScheduledJob',
+      entityId: id,
+      payload: { jobKey: job.jobKey, nextAttemptAt: job.nextAttemptAt },
+    });
+
+    return new SchedulerScheduledJobEntity(job);
+  }
+
+  async recoverJob(id: string, dto: RecoverSchedulerJobDto) {
+    const current = await this.ensureJobExists(id);
+    const latestFailure = await this.prisma.schedulerJobHistory.findFirst({
+      where: {
+        jobId: id,
+        status: { in: ['FAILED', 'DEAD_LETTER', 'RETRY_SCHEDULED'] },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    });
+
+    const recovery = await this.prisma.schedulerFailureRecovery.create({
+      data: {
+        tenantId: current.tenantId,
+        jobId: current.id,
+        historyId: latestFailure?.id,
+        action: dto.action,
+        reason: dto.reason,
+        payload: this.toJson(dto.payload),
+        createdById: this.context.getUserId(),
+      },
+    });
+
+    try {
+      await this.applyRecoveryAction(current.id, dto.action);
+      const applied = await this.prisma.schedulerFailureRecovery.update({
+        where: { id: recovery.id },
+        data: {
+          status: 'APPLIED',
+          appliedAt: new Date(),
+          updatedById: this.context.getUserId(),
+        },
+      });
+      await this.audit.record({
+        action: 'SCHEDULER_FAILURE_RECOVERY',
+        entity: 'SchedulerFailureRecovery',
+        entityId: recovery.id,
+        payload: {
+          jobId: current.id,
+          action: dto.action,
+          status: applied.status,
+        },
+      });
+      return new SchedulerFailureRecoveryEntity(applied);
+    } catch (error) {
+      const failed = await this.prisma.schedulerFailureRecovery.update({
+        where: { id: recovery.id },
+        data: {
+          status: 'FAILED',
+          error: error instanceof Error ? error.message : 'Recovery failed',
+          updatedById: this.context.getUserId(),
+        },
+      });
+      throw new BadRequestException(failed.error ?? 'Recovery failed');
+    }
+  }
+
+  async findRecoveries(query: SchedulerRecoveryQueryDto) {
+    const tenantId = query.tenantId ?? this.context.getTenantId();
+    const where: Prisma.SchedulerFailureRecoveryWhereInput = {
+      ...(tenantId ? { tenantId } : {}),
+      ...(query.action ? { action: query.action } : {}),
+      ...(query.status ? { status: query.status } : {}),
+    };
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.schedulerFailureRecovery.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        ...this.pagination.getSkipTake(query),
+      }),
+      this.prisma.schedulerFailureRecovery.count({ where }),
+    ]);
+    return this.pagination.buildResponse(
+      items.map((item) => new SchedulerFailureRecoveryEntity(item)),
+      total,
+      query,
+    );
+  }
+
+  private async applyRecoveryAction(id: string, action: SchedulerRecoveryAction) {
+    if (action === 'RETRY') {
+      await this.retryJob(id);
+      return;
+    }
+
+    const statusByAction: Partial<Record<SchedulerRecoveryAction, SchedulerRunStatus>> = {
+      REQUEUE: 'QUEUED',
+      CANCEL: 'CANCELLED',
+      MARK_RESOLVED: 'SUCCEEDED',
+      DEAD_LETTER: 'DEAD_LETTER',
+    };
+    const nextStatus = statusByAction[action];
+    if (!nextStatus) {
+      throw new BadRequestException('Unsupported scheduler recovery action');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.schedulerScheduledJob.update({
+        where: { id },
+        data: {
+          status: nextStatus,
+          nextAttemptAt: action === 'REQUEUE' ? new Date() : null,
+          completedAt: action === 'MARK_RESOLVED' ? new Date() : undefined,
+          failedAt: action === 'DEAD_LETTER' ? new Date() : undefined,
+          lockedAt: null,
+          lockedBy: null,
+          updatedById: this.context.getUserId(),
+        },
+      });
+      await tx.schedulerJobHistory.create({
+        data: this.buildHistoryData(updated, nextStatus),
+      });
+    });
+  }
+
   private async recordHistory(
     job: {
       id: string;
@@ -348,26 +653,55 @@ export class SchedulerService {
     error?: string,
   ) {
     return this.prisma.schedulerJobHistory.create({
-      data: {
-        tenantId: job.tenantId,
-        jobId: job.id,
-        cronId: job.cronId,
-        runId: `run_${randomUUID()}`,
-        taskName: job.taskName,
-        taskType: job.taskType,
-        queueName: job.queueName,
-        status,
-        attempt: Math.max(1, job.attempts),
-        startedAt: status === 'RUNNING' ? new Date() : undefined,
-        finishedAt: ['SUCCEEDED', 'FAILED', 'CANCELLED', 'DEAD_LETTER'].includes(status)
-          ? new Date()
-          : undefined,
-        error,
-        payload: this.toJson(job.payload),
-        metadata: this.toJson(job.metadata),
-        actorId: this.context.getUserId(),
-      },
+      data: this.buildHistoryData(job, status, error),
     });
+  }
+
+  private buildHistoryData(
+    job: {
+      id: string;
+      tenantId: string | null;
+      cronId: string | null;
+      taskName: string;
+      taskType: SchedulerTaskType;
+      queueName: string;
+      status: SchedulerRunStatus;
+      attempts: number;
+      payload: Prisma.JsonValue | null;
+      metadata: Prisma.JsonValue | null;
+    },
+    status: SchedulerRunStatus,
+    error?: string,
+  ): Prisma.SchedulerJobHistoryUncheckedCreateInput {
+    return {
+      tenantId: job.tenantId,
+      jobId: job.id,
+      cronId: job.cronId,
+      runId: `run_${randomUUID()}`,
+      taskName: job.taskName,
+      taskType: job.taskType,
+      queueName: job.queueName,
+      status,
+      attempt: Math.max(1, job.attempts),
+      startedAt: status === 'RUNNING' ? new Date() : undefined,
+      finishedAt: ['SUCCEEDED', 'FAILED', 'CANCELLED', 'DEAD_LETTER'].includes(status)
+        ? new Date()
+        : undefined,
+      error,
+      payload: this.toJson(job.payload),
+      metadata: this.toJson(job.metadata),
+      actorId: this.context.getUserId(),
+    };
+  }
+
+  private calculateNextAttempt(job: {
+    attempts: number;
+    retryDelaySeconds: number;
+    retryStrategy: string;
+  }) {
+    const multiplier =
+      job.retryStrategy === 'EXPONENTIAL' ? Math.max(1, 2 ** Math.max(0, job.attempts - 1)) : 1;
+    return new Date(Date.now() + job.retryDelaySeconds * multiplier * 1000);
   }
 
   private validateCronExpression(expression: string) {
@@ -426,7 +760,11 @@ export class SchedulerService {
     if (job) throw new ConflictException('Scheduled job key already exists');
   }
 
-  private toJson(value: unknown): Prisma.InputJsonValue | undefined {
-    return value === undefined ? undefined : (value as Prisma.InputJsonValue);
+  private toJson(
+    value: unknown,
+  ): Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput | undefined {
+    if (value === undefined) return undefined;
+    if (value === null) return Prisma.JsonNull;
+    return value as Prisma.InputJsonValue;
   }
 }
