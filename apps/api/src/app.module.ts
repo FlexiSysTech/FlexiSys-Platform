@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { AccountingModule } from './accounting/accounting.module';
+import { AiModule } from './ai/ai.module';
 import { AssetsModule } from './assets/assets.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { AuthModule } from './auth/auth.module';
@@ -26,6 +27,7 @@ import { WorkflowsModule } from './workflows/workflows.module';
   imports: [
     PlatformModule,
     PrismaModule,
+    AiModule,
     AccountingModule,
     AuthModule,
     UsersModule,

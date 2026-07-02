@@ -96,6 +96,13 @@ export const Permission = {
   BUSINESS_RULES_UPDATE: 'business-rules.update',
   BUSINESS_RULES_DELETE: 'business-rules.delete',
   BUSINESS_RULES_EXECUTE: 'business-rules.execute',
+
+  AI_READ: 'ai.read',
+  AI_CREATE: 'ai.create',
+  AI_UPDATE: 'ai.update',
+  AI_DELETE: 'ai.delete',
+  AI_EXECUTE: 'ai.execute',
+  AI_GOVERN: 'ai.govern',
 } as const;
 
 export type PermissionCode = (typeof Permission)[keyof typeof Permission];

@@ -246,6 +246,34 @@ enum BusinessRuleExecutionStatus {
   ERROR
 }
 
+enum AiProviderType {
+  INTERNAL
+  OPENAI
+  AZURE_OPENAI
+  CUSTOM
+}
+
+enum AiProviderStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum AiRequestStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  BLOCKED
+}
+
+enum AiFeatureArea {
+  CORE
+  HR_ASSISTANT
+  WORKFLOW
+  REPORTING
+  GOVERNANCE
+}
+
 enum RecruitmentStatus {
   ACTIVE
   INACTIVE
@@ -547,6 +575,9 @@ model Company {
   businessRuleCategories BusinessRuleCategory[]
   businessRules          BusinessRule[]
   businessRuleExecutions BusinessRuleExecution[]
+  aiProviderConfigs      AiProviderConfig[]
+  aiRequestLogs          AiRequestLog[]
+  aiUsageRecords         AiUsageRecord[]
 
   @@index([status])
 }
@@ -2000,4 +2031,100 @@ model BusinessRuleExecution {
   @@index([trigger])
   @@index([status])
   @@index([executedAt])
+}
+
+model AiProviderConfig {
+  id          String           @id @default(cuid())
+  companyId   String?
+  code        String
+  name        String
+  type        AiProviderType   @default(INTERNAL)
+  status      AiProviderStatus @default(ACTIVE)
+  model       String?
+  endpoint    String?
+  settings    Json?
+  isDefault   Boolean          @default(false)
+  deletedAt   DateTime?
+  deletedById String?
+  createdById String?
+  updatedById String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  company     Company?       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  requestLogs AiRequestLog[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([code])
+  @@index([type])
+  @@index([status])
+  @@index([isDefault])
+  @@index([deletedAt])
+}
+
+model AiRequestLog {
+  id               String          @id @default(cuid())
+  companyId        String?
+  providerId       String?
+  feature          AiFeatureArea   @default(CORE)
+  operation        String
+  status           AiRequestStatus @default(PENDING)
+  prompt           String?
+  requestPayload   Json?
+  responseText     String?
+  responsePayload  Json?
+  error            String?
+  promptTokens     Int             @default(0)
+  completionTokens Int             @default(0)
+  totalTokens      Int             @default(0)
+  costAmount       Decimal         @default(0) @db.Decimal(14, 4)
+  currency         String          @default("USD")
+  requestedById    String?
+  metadata         Json?
+  deletedAt        DateTime?
+  deletedById      String?
+  startedAt        DateTime        @default(now())
+  completedAt      DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  company      Company?          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  provider     AiProviderConfig? @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  usageRecords AiUsageRecord[]
+
+  @@index([companyId])
+  @@index([providerId])
+  @@index([feature])
+  @@index([operation])
+  @@index([status])
+  @@index([requestedById])
+  @@index([startedAt])
+  @@index([deletedAt])
+}
+
+model AiUsageRecord {
+  id               String        @id @default(cuid())
+  companyId        String?
+  requestLogId     String?
+  feature          AiFeatureArea @default(CORE)
+  operation        String
+  promptTokens     Int           @default(0)
+  completionTokens Int           @default(0)
+  totalTokens      Int           @default(0)
+  costAmount       Decimal       @default(0) @db.Decimal(14, 4)
+  currency         String        @default("USD")
+  usedById         String?
+  usedAt           DateTime      @default(now())
+  createdAt        DateTime      @default(now())
+
+  company    Company?      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  requestLog AiRequestLog? @relation(fields: [requestLogId], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([requestLogId])
+  @@index([feature])
+  @@index([operation])
+  @@index([usedById])
+  @@index([usedAt])
 }
