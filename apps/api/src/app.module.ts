@@ -17,6 +17,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { ObservabilityModule } from './observability/observability.module';
 import { OrganizationModule } from './organization/organization.module';
 import { PayrollModule } from './payroll/payroll.module';
+import { PerformanceOptimizationModule } from './performance-optimization/performance-optimization.module';
 import { PerformanceModule } from './performance/performance.module';
 import { PlatformModule } from './platform/platform.module';
 import { PluginsModule } from './plugins/plugins.module';
@@ -56,6 +57,7 @@ import { WorkflowsModule } from './workflows/workflows.module';
     TenantsModule,
     PublicApiModule,
     ObservabilityModule,
+    PerformanceOptimizationModule,
     PerformanceModule,
     AssetsModule,
     DocumentsModule,

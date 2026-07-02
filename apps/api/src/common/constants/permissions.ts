@@ -165,6 +165,11 @@ export const Permission = {
   BI_EXECUTE: 'bi.execute',
   BI_DASHBOARD: 'bi.dashboard',
   BI_PREDICT: 'bi.predict',
+
+  PERFORMANCE_OPTIMIZATION_READ: 'performance-optimization.read',
+  PERFORMANCE_OPTIMIZATION_MANAGE: 'performance-optimization.manage',
+  PERFORMANCE_OPTIMIZATION_EXECUTE: 'performance-optimization.execute',
+  PERFORMANCE_OPTIMIZATION_METRICS: 'performance-optimization.metrics',
 } as const;
 
 export type PermissionCode = (typeof Permission)[keyof typeof Permission];
