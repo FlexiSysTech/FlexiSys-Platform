@@ -21,6 +21,16 @@ import {
   UpdateIntegrationCredentialDto,
   UpdateIntegrationProviderDto,
 } from './dto/integration-core.dto';
+import {
+  CreateIntegrationRestConnectorDto,
+  CreateIntegrationRetryPolicyDto,
+  CreateIntegrationWebhookDto,
+  EnqueueIntegrationOutboundJobDto,
+  IntegrationOutboundQueryDto,
+  UpdateIntegrationRestConnectorDto,
+  UpdateIntegrationRetryPolicyDto,
+  UpdateIntegrationWebhookDto,
+} from './dto/integration-outbound.dto';
 import { IntegrationsService } from './integrations.service';
 
 @ApiTags('Integrations')
@@ -164,5 +174,123 @@ export class IntegrationsController {
   @ApiOperation({ summary: 'Disconnect integration connection' })
   disconnect(@Param('id') id: string) {
     return this.service.disconnect(id);
+  }
+
+  @Get('retry-policies')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_READ)
+  @ApiOperation({ summary: 'Get integration retry policies' })
+  findRetryPolicies(@Query() query: IntegrationQueryDto) {
+    return this.service.findRetryPolicies(query);
+  }
+
+  @Post('retry-policies')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_CREATE)
+  @ApiOperation({ summary: 'Create integration retry policy' })
+  createRetryPolicy(@Body() dto: CreateIntegrationRetryPolicyDto) {
+    return this.service.createRetryPolicy(dto);
+  }
+
+  @Patch('retry-policies/:id')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_UPDATE)
+  @ApiOperation({ summary: 'Update integration retry policy' })
+  updateRetryPolicy(
+    @Param('id') id: string,
+    @Body() dto: UpdateIntegrationRetryPolicyDto,
+  ) {
+    return this.service.updateRetryPolicy(id, dto);
+  }
+
+  @Delete('retry-policies/:id')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_DELETE)
+  @ApiOperation({ summary: 'Soft delete integration retry policy' })
+  removeRetryPolicy(@Param('id') id: string) {
+    return this.service.removeRetryPolicy(id);
+  }
+
+  @Get('webhooks')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_READ)
+  @ApiOperation({ summary: 'Get outbound webhooks' })
+  findWebhooks(@Query() query: IntegrationOutboundQueryDto) {
+    return this.service.findWebhooks(query);
+  }
+
+  @Post('webhooks')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_CREATE)
+  @ApiOperation({ summary: 'Create outbound webhook' })
+  createWebhook(@Body() dto: CreateIntegrationWebhookDto) {
+    return this.service.createWebhook(dto);
+  }
+
+  @Patch('webhooks/:id')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_UPDATE)
+  @ApiOperation({ summary: 'Update outbound webhook' })
+  updateWebhook(@Param('id') id: string, @Body() dto: UpdateIntegrationWebhookDto) {
+    return this.service.updateWebhook(id, dto);
+  }
+
+  @Delete('webhooks/:id')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_DELETE)
+  @ApiOperation({ summary: 'Soft delete outbound webhook' })
+  removeWebhook(@Param('id') id: string) {
+    return this.service.removeWebhook(id);
+  }
+
+  @Get('rest-connectors')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_READ)
+  @ApiOperation({ summary: 'Get REST connectors' })
+  findRestConnectors(@Query() query: IntegrationOutboundQueryDto) {
+    return this.service.findRestConnectors(query);
+  }
+
+  @Post('rest-connectors')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_CREATE)
+  @ApiOperation({ summary: 'Create REST connector' })
+  createRestConnector(@Body() dto: CreateIntegrationRestConnectorDto) {
+    return this.service.createRestConnector(dto);
+  }
+
+  @Patch('rest-connectors/:id')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_UPDATE)
+  @ApiOperation({ summary: 'Update REST connector' })
+  updateRestConnector(
+    @Param('id') id: string,
+    @Body() dto: UpdateIntegrationRestConnectorDto,
+  ) {
+    return this.service.updateRestConnector(id, dto);
+  }
+
+  @Delete('rest-connectors/:id')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_DELETE)
+  @ApiOperation({ summary: 'Soft delete REST connector' })
+  removeRestConnector(@Param('id') id: string) {
+    return this.service.removeRestConnector(id);
+  }
+
+  @Get('outbound-jobs')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_MONITOR)
+  @ApiOperation({ summary: 'Get outbound integration jobs' })
+  findOutboundJobs(@Query() query: IntegrationOutboundQueryDto) {
+    return this.service.findOutboundJobs(query);
+  }
+
+  @Post('outbound-jobs')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.INTEGRATIONS_EXECUTE)
+  @ApiOperation({ summary: 'Queue outbound integration job' })
+  enqueueOutboundJob(@Body() dto: EnqueueIntegrationOutboundJobDto) {
+    return this.service.enqueueOutboundJob(dto);
   }
 }

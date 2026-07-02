@@ -312,6 +312,23 @@ enum IntegrationConnectionStatus {
   DISABLED
 }
 
+enum IntegrationHttpMethod {
+  GET
+  POST
+  PUT
+  PATCH
+  DELETE
+}
+
+enum IntegrationOutboundStatus {
+  PENDING
+  QUEUED
+  PROCESSING
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
 enum RecruitmentStatus {
   ACTIVE
   INACTIVE
@@ -583,44 +600,48 @@ model Company {
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
 
-  branches               Branch[]
-  departments            Department[]
-  positions              Position[]
-  costCenters            CostCenter[]
-  employees              Employee[]
-  shifts                 Shift[]
-  holidays               Holiday[]
-  leaveTypes             LeaveType[]
-  leaveBalances          LeaveBalance[]
-  salaryComponents       SalaryComponent[]
-  payrollPeriods         PayrollPeriod[]
-  payrollRuns            PayrollRun[]
-  accounts               Account[]
-  journalEntries         JournalEntry[]
-  reportCategories       ReportCategory[]
-  reportDefinitions      ReportDefinition[]
-  reportExecutions       ReportExecution[]
-  jobPositions           JobPosition[]
-  vacancies              Vacancy[]
-  performanceCycles      PerformanceCycle[]
-  assetCategories        AssetCategory[]
-  assets                 Asset[]
-  documentCategories     DocumentCategory[]
-  documents              Document[]
-  selfServiceRequests    SelfServiceRequest[]
-  notifications          Notification[]
-  workflowDefinitions    WorkflowDefinition[]
-  businessRuleCategories BusinessRuleCategory[]
-  businessRules          BusinessRule[]
-  businessRuleExecutions BusinessRuleExecution[]
-  aiProviderConfigs      AiProviderConfig[]
-  aiRequestLogs          AiRequestLog[]
-  aiUsageRecords         AiUsageRecord[]
-  aiUsageLimits          AiUsageLimit[]
-  aiSafetyPolicies       AiSafetyPolicy[]
-  integrationProviders   IntegrationProvider[]
-  integrationCredentials IntegrationCredential[]
-  integrationConnections IntegrationConnection[]
+  branches                  Branch[]
+  departments               Department[]
+  positions                 Position[]
+  costCenters               CostCenter[]
+  employees                 Employee[]
+  shifts                    Shift[]
+  holidays                  Holiday[]
+  leaveTypes                LeaveType[]
+  leaveBalances             LeaveBalance[]
+  salaryComponents          SalaryComponent[]
+  payrollPeriods            PayrollPeriod[]
+  payrollRuns               PayrollRun[]
+  accounts                  Account[]
+  journalEntries            JournalEntry[]
+  reportCategories          ReportCategory[]
+  reportDefinitions         ReportDefinition[]
+  reportExecutions          ReportExecution[]
+  jobPositions              JobPosition[]
+  vacancies                 Vacancy[]
+  performanceCycles         PerformanceCycle[]
+  assetCategories           AssetCategory[]
+  assets                    Asset[]
+  documentCategories        DocumentCategory[]
+  documents                 Document[]
+  selfServiceRequests       SelfServiceRequest[]
+  notifications             Notification[]
+  workflowDefinitions       WorkflowDefinition[]
+  businessRuleCategories    BusinessRuleCategory[]
+  businessRules             BusinessRule[]
+  businessRuleExecutions    BusinessRuleExecution[]
+  aiProviderConfigs         AiProviderConfig[]
+  aiRequestLogs             AiRequestLog[]
+  aiUsageRecords            AiUsageRecord[]
+  aiUsageLimits             AiUsageLimit[]
+  aiSafetyPolicies          AiSafetyPolicy[]
+  integrationProviders      IntegrationProvider[]
+  integrationCredentials    IntegrationCredential[]
+  integrationConnections    IntegrationConnection[]
+  integrationWebhooks       IntegrationWebhook[]
+  integrationRestConnectors IntegrationRestConnector[]
+  integrationRetryPolicies  IntegrationRetryPolicy[]
+  integrationOutboundJobs   IntegrationOutboundJob[]
 
   @@index([status])
 }
@@ -2239,6 +2260,7 @@ model IntegrationProvider {
   company     Company?                @relation(fields: [companyId], references: [id], onDelete: Cascade)
   credentials IntegrationCredential[]
   connections IntegrationConnection[]
+  webhooks    IntegrationWebhook[]
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -2294,13 +2316,148 @@ model IntegrationConnection {
   createdAt       DateTime                    @default(now())
   updatedAt       DateTime                    @updatedAt
 
-  company    Company?               @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  provider   IntegrationProvider    @relation(fields: [providerId], references: [id], onDelete: Cascade)
-  credential IntegrationCredential? @relation(fields: [credentialId], references: [id], onDelete: SetNull)
+  company        Company?                   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  provider       IntegrationProvider        @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  credential     IntegrationCredential?     @relation(fields: [credentialId], references: [id], onDelete: SetNull)
+  restConnectors IntegrationRestConnector[]
+  outboundJobs   IntegrationOutboundJob[]
 
   @@index([companyId])
   @@index([providerId])
   @@index([credentialId])
   @@index([status])
   @@index([deletedAt])
+}
+
+model IntegrationRetryPolicy {
+  id                String            @id @default(cuid())
+  companyId         String?
+  code              String
+  name              String
+  maxAttempts       Int               @default(3)
+  backoffSeconds    Int               @default(60)
+  backoffMultiplier Int               @default(2)
+  status            IntegrationStatus @default(ACTIVE)
+  deletedAt         DateTime?
+  deletedById       String?
+  createdById       String?
+  updatedById       String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  company      Company?                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  webhooks     IntegrationWebhook[]
+  outboundJobs IntegrationOutboundJob[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([code])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model IntegrationWebhook {
+  id              String                @id @default(cuid())
+  companyId       String?
+  providerId      String
+  retryPolicyId   String?
+  code            String
+  name            String
+  eventType       String
+  targetUrl       String
+  httpMethod      IntegrationHttpMethod @default(POST)
+  headers         Json?
+  payloadTemplate Json?
+  status          IntegrationStatus     @default(DRAFT)
+  deletedAt       DateTime?
+  deletedById     String?
+  createdById     String?
+  updatedById     String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  company      Company?                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  provider     IntegrationProvider      @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  retryPolicy  IntegrationRetryPolicy?  @relation(fields: [retryPolicyId], references: [id], onDelete: SetNull)
+  outboundJobs IntegrationOutboundJob[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([providerId])
+  @@index([retryPolicyId])
+  @@index([eventType])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model IntegrationRestConnector {
+  id              String                @id @default(cuid())
+  companyId       String?
+  connectionId    String
+  code            String
+  name            String
+  endpointPath    String
+  httpMethod      IntegrationHttpMethod @default(POST)
+  requestTemplate Json?
+  responseMapping Json?
+  status          IntegrationStatus     @default(DRAFT)
+  deletedAt       DateTime?
+  deletedById     String?
+  createdById     String?
+  updatedById     String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  company      Company?                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  connection   IntegrationConnection    @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  outboundJobs IntegrationOutboundJob[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([connectionId])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model IntegrationOutboundJob {
+  id              String                    @id @default(cuid())
+  companyId       String?
+  connectionId    String?
+  webhookId       String?
+  restConnectorId String?
+  retryPolicyId   String?
+  eventType       String
+  targetUrl       String
+  httpMethod      IntegrationHttpMethod     @default(POST)
+  headers         Json?
+  payload         Json?
+  status          IntegrationOutboundStatus @default(PENDING)
+  attempts        Int                       @default(0)
+  maxAttempts     Int                       @default(3)
+  nextAttemptAt   DateTime?
+  queuedAt        DateTime                  @default(now())
+  processedAt     DateTime?
+  deliveredAt     DateTime?
+  failedAt        DateTime?
+  error           String?
+  createdById     String?
+  updatedById     String?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  company       Company?                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  connection    IntegrationConnection?    @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  webhook       IntegrationWebhook?       @relation(fields: [webhookId], references: [id], onDelete: SetNull)
+  restConnector IntegrationRestConnector? @relation(fields: [restConnectorId], references: [id], onDelete: SetNull)
+  retryPolicy   IntegrationRetryPolicy?   @relation(fields: [retryPolicyId], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([connectionId])
+  @@index([webhookId])
+  @@index([restConnectorId])
+  @@index([retryPolicyId])
+  @@index([eventType])
+  @@index([status])
+  @@index([nextAttemptAt])
+  @@index([queuedAt])
 }
