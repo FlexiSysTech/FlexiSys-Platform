@@ -613,6 +613,20 @@ enum SchedulerRetryStrategy {
   EXPONENTIAL
 }
 
+enum SchedulerRecoveryAction {
+  RETRY
+  REQUEUE
+  CANCEL
+  MARK_RESOLVED
+  DEAD_LETTER
+}
+
+enum SchedulerRecoveryStatus {
+  PENDING
+  APPLIED
+  FAILED
+}
+
 enum RecruitmentStatus {
   ACTIVE
   INACTIVE
@@ -985,6 +999,7 @@ model Tenant {
   schedulerCrons                 SchedulerCronRegistry[]
   schedulerJobs                  SchedulerScheduledJob[]
   schedulerJobHistories          SchedulerJobHistory[]
+  schedulerRecoveries            SchedulerFailureRecovery[]
 
   @@index([code])
   @@index([status])
