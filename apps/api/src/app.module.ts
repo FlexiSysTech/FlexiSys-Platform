@@ -11,6 +11,7 @@ import { EmployeesModule } from './employees/employees.module';
 import { EssModule } from './ess/ess.module';
 import { IntegrationsModule } from './integrations/integrations.module';
 import { LeaveModule } from './leave/leave.module';
+import { MobileModule } from './mobile/mobile.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ObservabilityModule } from './observability/observability.module';
 import { OrganizationModule } from './organization/organization.module';
@@ -58,6 +59,7 @@ import { WorkflowsModule } from './workflows/workflows.module';
     EssModule,
     NotificationsModule,
     SchedulerModule,
+    MobileModule,
     WorkflowsModule,
   ],
 })

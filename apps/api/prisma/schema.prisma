@@ -1915,13 +1915,13 @@ model MobileDevice {
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
 
-  tenant           Tenant?                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user             User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  company          Company?                 @relation(fields: [companyId], references: [id], onDelete: SetNull)
-  branch           Branch?                  @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  sessions         MobileSession[]
+  tenant            Tenant?                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user              User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company           Company?                 @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  branch            Branch?                  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  sessions          MobileSession[]
   pushNotifications MobilePushNotification[]
-  syncCursors      MobileSyncCursor[]
+  syncCursors       MobileSyncCursor[]
 
   @@unique([userId, deviceIdentifier])
   @@index([tenantId])
@@ -1974,12 +1974,12 @@ model MobileSession {
 }
 
 model MobilePushNotification {
-  id          String           @id @default(cuid())
+  id          String             @id @default(cuid())
   tenantId    String?
   userId      String?
   deviceId    String?
   provider    MobilePushProvider @default(NONE)
-  status      MobilePushStatus @default(PENDING)
+  status      MobilePushStatus   @default(PENDING)
   title       String
   message     String
   payload     Json?
@@ -1990,8 +1990,8 @@ model MobilePushNotification {
   error       String?
   createdById String?
   updatedById String?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
 
   tenant Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user   User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
@@ -2042,19 +2042,19 @@ model MobileSyncCursor {
 }
 
 model MobileSyncChange {
-  id          String              @id @default(cuid())
-  tenantId    String?
-  companyId   String?
-  branchId    String?
-  entityType  String
-  entityId    String
-  operation   MobileSyncOperation
-  version     Int                 @default(1)
-  payload     Json?
-  syncStatus  MobileSyncStatus    @default(PENDING)
-  occurredAt  DateTime            @default(now())
-  metadata    Json?
-  createdAt   DateTime            @default(now())
+  id         String              @id @default(cuid())
+  tenantId   String?
+  companyId  String?
+  branchId   String?
+  entityType String
+  entityId   String
+  operation  MobileSyncOperation
+  version    Int                 @default(1)
+  payload    Json?
+  syncStatus MobileSyncStatus    @default(PENDING)
+  occurredAt DateTime            @default(now())
+  metadata   Json?
+  createdAt  DateTime            @default(now())
 
   tenant  Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
