@@ -31,6 +31,8 @@ export class RequestContextMiddleware implements NestMiddleware {
     const context: RequestContext = {
       user,
       organization: {
+        tenantId: this.firstHeader(req.headers['x-tenant-id']),
+        tenantCode: this.firstHeader(req.headers['x-tenant-code']),
         companyId: this.firstHeader(req.headers['x-company-id']),
         branchId: this.firstHeader(req.headers['x-branch-id']),
       },

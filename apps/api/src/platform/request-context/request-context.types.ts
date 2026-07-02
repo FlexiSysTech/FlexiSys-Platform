@@ -8,6 +8,8 @@ export interface RequestUserContext {
 }
 
 export interface RequestOrganizationContext {
+  tenantId?: string;
+  tenantCode?: string;
   companyId?: string;
   branchId?: string;
 }

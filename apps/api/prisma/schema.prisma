@@ -444,6 +444,21 @@ enum PluginDependencyStatus {
   INCOMPATIBLE
 }
 
+enum TenantStatus {
+  PROVISIONING
+  ACTIVE
+  SUSPENDED
+  INACTIVE
+  ARCHIVED
+}
+
+enum TenantPlan {
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+  CUSTOM
+}
+
 enum RecruitmentStatus {
   ACTIVE
   INACTIVE
@@ -700,6 +715,7 @@ model RolePermission {
 
 model Company {
   id                     String             @id @default(cuid())
+  tenantId               String?
   code                   String             @unique
   name                   String
   legalName              String?
@@ -715,6 +731,7 @@ model Company {
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
 
+  tenant                     Tenant?                       @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   branches                   Branch[]
   departments                Department[]
   positions                  Position[]
@@ -766,6 +783,54 @@ model Company {
   pluginInstallations        PluginInstallation[]
 
   @@index([status])
+  @@index([tenantId])
+}
+
+model Tenant {
+  id            String       @id @default(cuid())
+  code          String       @unique
+  name          String
+  legalName     String?
+  status        TenantStatus @default(PROVISIONING)
+  plan          TenantPlan   @default(STARTER)
+  primaryDomain String?
+  metadata      Json?
+  deletedAt     DateTime?
+  deletedById   String?
+  createdById   String?
+  updatedById   String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  companies Company[]
+  domains   TenantDomain[]
+
+  @@index([code])
+  @@index([status])
+  @@index([plan])
+  @@index([primaryDomain])
+  @@index([deletedAt])
+}
+
+model TenantDomain {
+  id          String    @id @default(cuid())
+  tenantId    String
+  domain      String    @unique
+  isPrimary   Boolean   @default(false)
+  verifiedAt  DateTime?
+  deletedAt   DateTime?
+  deletedById String?
+  createdById String?
+  updatedById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([domain])
+  @@index([isPrimary])
+  @@index([deletedAt])
 }
 
 model Account {

@@ -22,6 +22,7 @@ import { PrismaModule } from './prisma';
 import { RecruitmentModule } from './recruitment/recruitment.module';
 import { ReportingModule } from './reporting/reporting.module';
 import { RolesModule } from './roles/roles.module';
+import { TenantsModule } from './tenants/tenants.module';
 import { UsersModule } from './users/users.module';
 import { WorkflowsModule } from './workflows/workflows.module';
 
@@ -45,6 +46,7 @@ import { WorkflowsModule } from './workflows/workflows.module';
     BusinessRulesModule,
     IntegrationsModule,
     PluginsModule,
+    TenantsModule,
     PerformanceModule,
     AssetsModule,
     DocumentsModule,

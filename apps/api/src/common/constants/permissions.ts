@@ -117,6 +117,13 @@ export const Permission = {
   PLUGINS_DELETE: 'plugins.delete',
   PLUGINS_EXECUTE: 'plugins.execute',
   PLUGINS_GOVERN: 'plugins.govern',
+
+  TENANTS_READ: 'tenants.read',
+  TENANTS_CREATE: 'tenants.create',
+  TENANTS_UPDATE: 'tenants.update',
+  TENANTS_DELETE: 'tenants.delete',
+  TENANTS_PROVISION: 'tenants.provision',
+  TENANTS_SECURITY: 'tenants.security',
 } as const;
 
 export type PermissionCode = (typeof Permission)[keyof typeof Permission];

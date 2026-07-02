@@ -27,6 +27,14 @@ export class RequestContextService {
     return this.getContext()?.organization.companyId;
   }
 
+  getTenantId(): string | undefined {
+    return this.getContext()?.organization.tenantId;
+  }
+
+  getTenantCode(): string | undefined {
+    return this.getContext()?.organization.tenantCode;
+  }
+
   getBranchId(): string | undefined {
     return this.getContext()?.organization.branchId;
   }
