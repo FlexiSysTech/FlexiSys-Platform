@@ -357,6 +357,40 @@ enum IntegrationHealthStatus {
   UNKNOWN
 }
 
+enum PluginSource {
+  SYSTEM
+  LOCAL
+  UPLOAD
+  MARKETPLACE
+}
+
+enum PluginStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum PluginLifecycleState {
+  REGISTERED
+  LOADED
+  ENABLED
+  DISABLED
+  ERROR
+  UNINSTALLED
+}
+
+enum PluginLifecycleAction {
+  REGISTER
+  LOAD
+  ENABLE
+  DISABLE
+  RELOAD
+  UNLOAD
+  UNINSTALL
+  HEALTH_CHECK
+}
+
 enum RecruitmentStatus {
   ACTIVE
   INACTIVE
@@ -673,6 +707,8 @@ model Company {
   integrationInboundEvents   IntegrationInboundEvent[]
   integrationExecutions      IntegrationExecutionHistory[]
   integrationHealthSnapshots IntegrationHealthSnapshot[]
+  pluginManifests            PluginManifest[]
+  pluginRegistryEntries      PluginRegistryEntry[]
 
   @@index([status])
 }
@@ -2596,4 +2632,87 @@ model IntegrationHealthSnapshot {
   @@index([connectionId])
   @@index([status])
   @@index([checkedAt])
+}
+
+model PluginManifest {
+  id          String       @id @default(cuid())
+  companyId   String?
+  pluginKey   String
+  name        String
+  version     String
+  description String?
+  publisher   String?
+  source      PluginSource @default(LOCAL)
+  status      PluginStatus @default(DRAFT)
+  entryPoint  String?
+  checksum    String?
+  manifest    Json
+  metadata    Json?
+  deletedAt   DateTime?
+  deletedById String?
+  createdById String?
+  updatedById String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  company         Company?              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  registryEntries PluginRegistryEntry[]
+
+  @@unique([companyId, pluginKey, version])
+  @@index([companyId])
+  @@index([pluginKey])
+  @@index([version])
+  @@index([source])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model PluginRegistryEntry {
+  id          String               @id @default(cuid())
+  companyId   String?
+  manifestId  String
+  status      PluginStatus         @default(DRAFT)
+  lifecycle   PluginLifecycleState @default(REGISTERED)
+  config      Json?
+  loadedAt    DateTime?
+  enabledAt   DateTime?
+  disabledAt  DateTime?
+  lastError   String?
+  deletedAt   DateTime?
+  deletedById String?
+  createdById String?
+  updatedById String?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  company         Company?               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  manifest        PluginManifest         @relation(fields: [manifestId], references: [id], onDelete: Cascade)
+  lifecycleEvents PluginLifecycleEvent[]
+
+  @@unique([companyId, manifestId])
+  @@index([companyId])
+  @@index([manifestId])
+  @@index([status])
+  @@index([lifecycle])
+  @@index([deletedAt])
+}
+
+model PluginLifecycleEvent {
+  id              String                @id @default(cuid())
+  registryEntryId String
+  action          PluginLifecycleAction
+  fromState       PluginLifecycleState?
+  toState         PluginLifecycleState?
+  success         Boolean               @default(true)
+  message         String?
+  metadata        Json?
+  actorId         String?
+  createdAt       DateTime              @default(now())
+
+  registryEntry PluginRegistryEntry @relation(fields: [registryEntryId], references: [id], onDelete: Cascade)
+
+  @@index([registryEntryId])
+  @@index([action])
+  @@index([success])
+  @@index([createdAt])
 }
