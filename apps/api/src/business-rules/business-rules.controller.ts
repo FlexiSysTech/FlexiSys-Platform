@@ -18,6 +18,7 @@ import { CreateBusinessRuleActionDto } from './dto/create-business-rule-action.d
 import { CreateBusinessRuleCategoryDto } from './dto/create-business-rule-category.dto';
 import { CreateBusinessRuleConditionDto } from './dto/create-business-rule-condition.dto';
 import { CreateBusinessRuleDto } from './dto/create-business-rule.dto';
+import { EvaluateBusinessRulesDto } from './dto/evaluate-business-rules.dto';
 import { UpdateBusinessRuleActionDto } from './dto/update-business-rule-action.dto';
 import { UpdateBusinessRuleCategoryDto } from './dto/update-business-rule-category.dto';
 import { UpdateBusinessRuleConditionDto } from './dto/update-business-rule-condition.dto';
@@ -70,6 +71,14 @@ export class BusinessRulesController {
   @ApiOperation({ summary: 'Get business rules' })
   findRules(@Query() query: BusinessRuleQueryDto) {
     return this.service.findRules(query);
+  }
+
+  @Post('evaluate')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.BUSINESS_RULES_EXECUTE)
+  @ApiOperation({ summary: 'Evaluate active business rules' })
+  evaluate(@Body() dto: EvaluateBusinessRulesDto) {
+    return this.service.evaluate(dto);
   }
 
   @Get(':id/conditions')

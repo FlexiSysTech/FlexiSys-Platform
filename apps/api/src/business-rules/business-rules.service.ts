@@ -17,6 +17,7 @@ import { CreateBusinessRuleActionDto } from './dto/create-business-rule-action.d
 import { CreateBusinessRuleCategoryDto } from './dto/create-business-rule-category.dto';
 import { CreateBusinessRuleConditionDto } from './dto/create-business-rule-condition.dto';
 import { CreateBusinessRuleDto } from './dto/create-business-rule.dto';
+import { EvaluateBusinessRulesDto } from './dto/evaluate-business-rules.dto';
 import { UpdateBusinessRuleActionDto } from './dto/update-business-rule-action.dto';
 import { UpdateBusinessRuleCategoryDto } from './dto/update-business-rule-category.dto';
 import { UpdateBusinessRuleConditionDto } from './dto/update-business-rule-condition.dto';
@@ -29,6 +30,10 @@ import {
   BusinessRuleCategoryEntity,
   BusinessRuleEntity,
 } from './entities/business-rule.entity';
+import {
+  BusinessRuleEvaluationActionEntity,
+  BusinessRuleEvaluationEntity,
+} from './entities/business-rule-evaluation.entity';
 
 @Injectable()
 export class BusinessRulesService {
@@ -518,6 +523,108 @@ export class BusinessRulesService {
     };
   }
 
+  async evaluate(dto: EvaluateBusinessRulesDto) {
+    const companyId = await this.resolveCompanyId(dto.companyId);
+    const branchId = dto.branchId ?? this.context.getBranchId();
+    const trigger = dto.trigger ?? 'API';
+    const now = new Date();
+
+    const rules = await this.prisma.businessRule.findMany({
+      where: this.softDelete.activeWhere({
+        module: dto.module,
+        entity: dto.entity,
+        trigger,
+        status: 'ACTIVE',
+        AND: [
+          { OR: [{ companyId: null }, ...(companyId ? [{ companyId }] : [])] },
+          ...(branchId ? [{ OR: [{ branchId: null }, { branchId }] }] : []),
+          { OR: [{ effectiveFrom: null }, { effectiveFrom: { lte: now } }] },
+          { OR: [{ effectiveTo: null }, { effectiveTo: { gte: now } }] },
+        ],
+      }),
+      include: {
+        conditions: {
+          where: { deletedAt: null },
+          orderBy: [{ displayOrder: 'asc' }, { field: 'asc' }],
+        },
+        actions: {
+          where: { deletedAt: null },
+          orderBy: [{ displayOrder: 'asc' }, { type: 'asc' }],
+        },
+      },
+      orderBy: [{ priority: 'asc' }, { code: 'asc' }],
+    });
+
+    const matchedRuleIds: string[] = [];
+    const actions: BusinessRuleEvaluationActionEntity[] = [];
+    let blocked = false;
+
+    for (const rule of rules) {
+      const matched = this.evaluateConditions(rule.conditions, dto.payload);
+      const status = matched
+        ? rule.actions.some((action) => action.type === 'VALIDATION_ERROR')
+          ? 'BLOCKED'
+          : 'MATCHED'
+        : 'NOT_MATCHED';
+
+      await this.prisma.businessRuleExecution.create({
+        data: {
+          companyId,
+          ruleId: rule.id,
+          module: dto.module,
+          entity: dto.entity,
+          trigger,
+          status,
+          input: this.toJson(dto.payload),
+          result: this.toJson({ matched, actionCount: rule.actions.length }),
+          executedById: this.context.getUserId(),
+        },
+      });
+
+      if (!matched) continue;
+      matchedRuleIds.push(rule.id);
+
+      for (const action of rule.actions) {
+        actions.push(
+          new BusinessRuleEvaluationActionEntity({
+            ruleId: rule.id,
+            ruleCode: rule.code,
+            type: action.type,
+            target: action.target,
+            value: action.value,
+            message: action.message,
+          }),
+        );
+        if (action.type === 'VALIDATION_ERROR') blocked = true;
+      }
+
+      if (rule.stopProcessing) break;
+    }
+
+    const result = new BusinessRuleEvaluationEntity({
+      matched: matchedRuleIds.length > 0,
+      blocked,
+      evaluatedRuleCount: rules.length,
+      matchedRuleCount: matchedRuleIds.length,
+      matchedRuleIds,
+      actions,
+    });
+
+    await this.audit.record({
+      action: 'BUSINESS_RULE_EVALUATE',
+      entity: 'BusinessRule',
+      payload: {
+        module: dto.module,
+        entity: dto.entity,
+        trigger,
+        matchedRuleIds,
+        blocked,
+      },
+    });
+
+    return result;
+  }
+
   private async resolveCompanyId(companyId?: string): Promise<string | null> {
     const resolved = companyId ?? this.context.getCompanyId();
     if (!resolved) return null;
@@ -617,5 +724,79 @@ export class BusinessRulesService {
 
   private toJson(value: unknown): Prisma.InputJsonValue | undefined {
     return value === undefined ? undefined : (value as Prisma.InputJsonValue);
+  }
+
+  private evaluateConditions(
+    conditions: Array<{
+      field: string;
+      operator: string;
+      value: unknown;
+      logicalOperator: string;
+    }>,
+    payload: Record<string, unknown>,
+  ): boolean {
+    if (conditions.length === 0) return true;
+
+    return conditions.reduce((result, condition, index) => {
+      const passed = this.evaluateCondition(condition, payload);
+      if (index === 0) return passed;
+      return condition.logicalOperator === 'OR' ? result || passed : result && passed;
+    }, true);
+  }
+
+  private evaluateCondition(
+    condition: { field: string; operator: string; value: unknown },
+    payload: Record<string, unknown>,
+  ): boolean {
+    const actual = this.getPathValue(payload, condition.field);
+    const expected = this.unwrapExpectedValue(condition.value);
+
+    switch (condition.operator) {
+      case 'EQUALS':
+        return actual === expected;
+      case 'NOT_EQUALS':
+        return actual !== expected;
+      case 'GREATER_THAN':
+        return Number(actual) > Number(expected);
+      case 'GREATER_THAN_OR_EQUALS':
+        return Number(actual) >= Number(expected);
+      case 'LESS_THAN':
+        return Number(actual) < Number(expected);
+      case 'LESS_THAN_OR_EQUALS':
+        return Number(actual) <= Number(expected);
+      case 'CONTAINS':
+        return String(actual ?? '').includes(String(expected ?? ''));
+      case 'NOT_CONTAINS':
+        return !String(actual ?? '').includes(String(expected ?? ''));
+      case 'IN':
+        return Array.isArray(expected) && expected.includes(actual);
+      case 'NOT_IN':
+        return Array.isArray(expected) && !expected.includes(actual);
+      case 'EXISTS':
+        return actual !== undefined && actual !== null;
+      case 'NOT_EXISTS':
+        return actual === undefined || actual === null;
+      default:
+        return false;
+    }
+  }
+
+  private getPathValue(payload: Record<string, unknown>, path: string): unknown {
+    return path.split('.').reduce<unknown>((current, part) => {
+      if (current && typeof current === 'object' && part in current) {
+        return (current as Record<string, unknown>)[part];
+      }
+      return undefined;
+    }, payload);
+  }
+
+  private unwrapExpectedValue(value: unknown): unknown {
+    if (value && typeof value === 'object' && 'value' in value) {
+      return (value as Record<string, unknown>).value;
+    }
+    if (value && typeof value === 'object' && 'values' in value) {
+      return (value as Record<string, unknown>).values;
+    }
+    return value;
   }
 }
