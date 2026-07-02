@@ -676,6 +676,29 @@ enum MobileSyncStatus {
   FAILED
 }
 
+enum SearchEntityType {
+  EMPLOYEE
+  PAYROLL_RUN
+  PAYROLL_ITEM
+  DOCUMENT
+  WORKFLOW_DEFINITION
+  WORKFLOW_REQUEST
+}
+
+enum SearchIndexStatus {
+  ACTIVE
+  STALE
+  ARCHIVED
+}
+
+enum SearchScope {
+  GLOBAL
+  EMPLOYEE
+  PAYROLL
+  DOCUMENT
+  WORKFLOW
+}
+
 enum RecruitmentStatus {
   ACTIVE
   INACTIVE
@@ -1006,6 +1029,8 @@ model Company {
   mobileSessions             MobileSession[]
   mobileSyncCursors          MobileSyncCursor[]
   mobileSyncChanges          MobileSyncChange[]
+  searchIndexes              SearchIndex[]
+  searchQueryLogs            SearchQueryLog[]
 
   @@index([status])
   @@index([tenantId])
@@ -1062,6 +1087,8 @@ model Tenant {
   mobilePushNotifications        MobilePushNotification[]
   mobileSyncCursors              MobileSyncCursor[]
   mobileSyncChanges              MobileSyncChange[]
+  searchIndexes                  SearchIndex[]
+  searchQueryLogs                SearchQueryLog[]
 
   @@index([code])
   @@index([status])
@@ -2071,6 +2098,71 @@ model MobileSyncChange {
   @@index([createdAt])
 }
 
+model SearchIndex {
+  id            String            @id @default(cuid())
+  tenantId      String?
+  companyId     String?
+  branchId      String?
+  entityType    SearchEntityType
+  entityId      String
+  title         String
+  subtitle      String?
+  content       String?           @db.Text
+  keywords      String?           @db.Text
+  searchableText String           @db.Text
+  status        SearchIndexStatus @default(ACTIVE)
+  sourceUpdatedAt DateTime?
+  lastIndexedAt DateTime          @default(now())
+  metadata      Json?
+  deletedAt     DateTime?
+  deletedById   String?
+  createdById   String?
+  updatedById   String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  tenant  Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch  Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@unique([entityType, entityId])
+  @@index([tenantId])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([entityType])
+  @@index([status])
+  @@index([sourceUpdatedAt])
+  @@index([lastIndexedAt])
+  @@index([deletedAt])
+}
+
+model SearchQueryLog {
+  id          String      @id @default(cuid())
+  tenantId    String?
+  companyId   String?
+  branchId    String?
+  userId      String?
+  scope       SearchScope @default(GLOBAL)
+  query       String
+  filters     Json?
+  resultCount Int         @default(0)
+  durationMs  Int         @default(0)
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime    @default(now())
+
+  tenant  Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch  Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([userId])
+  @@index([scope])
+  @@index([createdAt])
+}
+
 model Account {
   id          String        @id @default(cuid())
   companyId   String
@@ -2272,6 +2364,8 @@ model Branch {
   mobileSessions    MobileSession[]
   mobileSyncCursors MobileSyncCursor[]
   mobileSyncChanges MobileSyncChange[]
+  searchIndexes     SearchIndex[]
+  searchQueryLogs   SearchQueryLog[]
 
   @@unique([companyId, code])
   @@index([tenantId])
