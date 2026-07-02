@@ -13,6 +13,11 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Permission, Permissions } from '../common/decorators/permissions.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import {
+  CreatePublicApiKeyDto,
+  PublicApiKeyQueryDto,
+  RotatePublicApiKeyDto,
+} from './dto/public-api-keys.dto';
+import {
   CreatePublicApiDto,
   CreatePublicApiGroupDto,
   CreatePublicApiVersionDto,
@@ -115,5 +120,37 @@ export class PublicApiController {
   @ApiOperation({ summary: 'Update public API version' })
   updateVersion(@Param('id') id: string, @Body() dto: UpdatePublicApiVersionDto) {
     return this.service.updateVersion(id, dto);
+  }
+
+  @Get('keys')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PUBLIC_API_KEYS)
+  @ApiOperation({ summary: 'Get public API keys' })
+  findKeys(@Query() query: PublicApiKeyQueryDto) {
+    return this.service.findKeys(query);
+  }
+
+  @Post('keys')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PUBLIC_API_KEYS)
+  @ApiOperation({ summary: 'Create public API key' })
+  createKey(@Body() dto: CreatePublicApiKeyDto) {
+    return this.service.createKey(dto);
+  }
+
+  @Post('keys/:id/rotate')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PUBLIC_API_KEYS)
+  @ApiOperation({ summary: 'Rotate public API key' })
+  rotateKey(@Param('id') id: string, @Body() dto: RotatePublicApiKeyDto) {
+    return this.service.rotateKey(id, dto);
+  }
+
+  @Post('keys/:id/revoke')
+  @Roles('SUPER_ADMIN')
+  @Permissions(Permission.PUBLIC_API_KEYS)
+  @ApiOperation({ summary: 'Revoke public API key' })
+  revokeKey(@Param('id') id: string) {
+    return this.service.revokeKey(id);
   }
 }

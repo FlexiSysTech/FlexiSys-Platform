@@ -502,6 +502,13 @@ enum PublicApiLifecycle {
   RETIRED
 }
 
+enum PublicApiKeyStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+  ROTATED
+}
+
 enum RecruitmentStatus {
   ACTIVE
   INACTIVE
@@ -845,19 +852,21 @@ model Tenant {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
-  companies Company[]
-  branches  Branch[]
-  domains   TenantDomain[]
-  settings  TenantSetting[]
-  flags     TenantFeatureFlag[]
-  locales   TenantLocalization[]
-  branding  TenantBranding?
-  limits    TenantUsageLimit[]
-  events    TenantProvisioningEvent[]
-  policies  TenantPermissionPolicy[]
-  audits    TenantAuditEvent[]
-  apiGroups PublicApiGroup[]
-  apis      PublicApiRegistry[]
+  companies       Company[]
+  branches        Branch[]
+  domains         TenantDomain[]
+  settings        TenantSetting[]
+  flags           TenantFeatureFlag[]
+  locales         TenantLocalization[]
+  branding        TenantBranding?
+  limits          TenantUsageLimit[]
+  events          TenantProvisioningEvent[]
+  policies        TenantPermissionPolicy[]
+  audits          TenantAuditEvent[]
+  apiGroups       PublicApiGroup[]
+  apis            PublicApiRegistry[]
+  apiApplications PublicApiApplication[]
+  apiKeys         PublicApiKey[]
 
   @@index([code])
   @@index([status])
@@ -1156,6 +1165,65 @@ model PublicApiVersion {
   @@index([lifecycle])
   @@index([releasedAt])
   @@index([deprecatedAt])
+  @@index([deletedAt])
+}
+
+model PublicApiApplication {
+  id           String          @id @default(cuid())
+  tenantId     String?
+  code         String
+  name         String
+  ownerUserId  String?
+  callbackUrls Json?
+  status       PublicApiStatus @default(DRAFT)
+  metadata     Json?
+  deletedAt    DateTime?
+  deletedById  String?
+  createdById  String?
+  updatedById  String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  tenant Tenant?        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  keys   PublicApiKey[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([code])
+  @@index([ownerUserId])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model PublicApiKey {
+  id            String             @id @default(cuid())
+  tenantId      String?
+  applicationId String?
+  name          String
+  keyId         String             @unique
+  secretHash    String
+  scopes        Json?
+  status        PublicApiKeyStatus @default(ACTIVE)
+  expiresAt     DateTime?
+  rotatedAt     DateTime?
+  revokedAt     DateTime?
+  lastUsedAt    DateTime?
+  deletedAt     DateTime?
+  deletedById   String?
+  createdById   String?
+  updatedById   String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  tenant      Tenant?               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  application PublicApiApplication? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([applicationId])
+  @@index([keyId])
+  @@index([status])
+  @@index([expiresAt])
+  @@index([lastUsedAt])
   @@index([deletedAt])
 }
 

@@ -3,7 +3,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, PublicApiLifecycle, PublicApiStatus } from '@prisma/client';
+import { createHash, randomBytes } from 'crypto';
+import {
+  Prisma,
+  PublicApiKeyStatus,
+  PublicApiLifecycle,
+  PublicApiStatus,
+} from '@prisma/client';
 
 import { AuditService } from '../platform/audit';
 import { PaginationService } from '../platform/pagination';
@@ -20,6 +26,15 @@ import {
   UpdatePublicApiGroupDto,
   UpdatePublicApiVersionDto,
 } from './dto/public-api-registry.dto';
+import {
+  CreatePublicApiKeyDto,
+  PublicApiKeyQueryDto,
+  RotatePublicApiKeyDto,
+} from './dto/public-api-keys.dto';
+import {
+  PublicApiKeyCreatedEntity,
+  PublicApiKeyEntity,
+} from './entities/public-api-key.entity';
 import {
   PublicApiEntity,
   PublicApiGroupEntity,
@@ -361,6 +376,108 @@ export class PublicApiService {
     return new PublicApiVersionEntity(item);
   }
 
+  async findKeys(query: PublicApiKeyQueryDto) {
+    const tenantId = query.tenantId ?? this.context.getTenantId();
+    const where: Prisma.PublicApiKeyWhereInput = this.softDelete.activeWhere({
+      ...(tenantId ? { tenantId } : {}),
+      ...(query.applicationId ? { applicationId: query.applicationId } : {}),
+      ...(query.status ? { status: query.status } : {}),
+    });
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.publicApiKey.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        ...this.pagination.getSkipTake(query),
+      }),
+      this.prisma.publicApiKey.count({ where }),
+    ]);
+    return this.pagination.buildResponse(
+      items.map((item) => new PublicApiKeyEntity(item)),
+      total,
+      query,
+    );
+  }
+
+  async createKey(dto: CreatePublicApiKeyDto) {
+    const tenantId = await this.resolveTenantId(dto.tenantId);
+    if (dto.applicationId) {
+      await this.ensureApplicationExists(dto.applicationId, tenantId);
+    }
+    const credentials = this.generateCredentials();
+    const item = await this.prisma.publicApiKey.create({
+      data: {
+        tenantId,
+        applicationId: dto.applicationId,
+        name: dto.name,
+        keyId: credentials.keyId,
+        secretHash: this.hashSecret(credentials.secret),
+        scopes: this.toJson(dto.scopes ?? []),
+        expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : undefined,
+        createdById: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'PUBLIC_API_KEY_CREATE',
+      entity: 'PublicApiKey',
+      entityId: item.id,
+      payload: { tenantId, applicationId: item.applicationId, keyId: item.keyId },
+    });
+    return new PublicApiKeyCreatedEntity({ ...item, secret: credentials.secret });
+  }
+
+  async rotateKey(id: string, dto: RotatePublicApiKeyDto) {
+    const current = await this.ensureKeyExists(id);
+    const credentials = this.generateCredentials();
+    const item = await this.prisma.$transaction(async (tx) => {
+      await tx.publicApiKey.update({
+        where: { id },
+        data: {
+          status: 'ROTATED',
+          rotatedAt: new Date(),
+          updatedById: this.context.getUserId(),
+        },
+      });
+      return tx.publicApiKey.create({
+        data: {
+          tenantId: current.tenantId,
+          applicationId: current.applicationId,
+          name: current.name,
+          keyId: credentials.keyId,
+          secretHash: this.hashSecret(credentials.secret),
+          scopes: current.scopes ?? Prisma.JsonNull,
+          expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : current.expiresAt,
+          createdById: this.context.getUserId(),
+        },
+      });
+    });
+    await this.audit.record({
+      action: 'PUBLIC_API_KEY_ROTATE',
+      entity: 'PublicApiKey',
+      entityId: item.id,
+      payload: { previousKeyId: current.keyId, keyId: item.keyId },
+    });
+    return new PublicApiKeyCreatedEntity({ ...item, secret: credentials.secret });
+  }
+
+  async revokeKey(id: string) {
+    const current = await this.ensureKeyExists(id);
+    const item = await this.prisma.publicApiKey.update({
+      where: { id },
+      data: {
+        status: 'REVOKED',
+        revokedAt: new Date(),
+        updatedById: this.context.getUserId(),
+      },
+    });
+    await this.audit.record({
+      action: 'PUBLIC_API_KEY_REVOKE',
+      entity: 'PublicApiKey',
+      entityId: id,
+      payload: { keyId: current.keyId },
+    });
+    return new PublicApiKeyEntity(item);
+  }
+
   private async resolveTenantId(tenantId?: string | null): Promise<string | null> {
     const resolved = tenantId ?? this.context.getTenantId();
     if (!resolved) return null;
@@ -416,6 +533,25 @@ export class PublicApiService {
     return item;
   }
 
+  private async ensureApplicationExists(id: string, tenantId?: string | null) {
+    const item = await this.prisma.publicApiApplication.findFirst({
+      where: this.softDelete.activeWhere({
+        id,
+        ...(tenantId !== undefined ? { tenantId } : {}),
+      }),
+    });
+    if (!item) throw new NotFoundException('Public API application not found');
+    return item;
+  }
+
+  private async ensureKeyExists(id: string) {
+    const item = await this.prisma.publicApiKey.findFirst({
+      where: this.softDelete.activeWhere({ id }),
+    });
+    if (!item) throw new NotFoundException('Public API key not found');
+    return item;
+  }
+
   private async ensureGroupUnique(
     tenantId: string | null,
     code: string,
@@ -451,5 +587,16 @@ export class PublicApiService {
 
   private toJson(value: unknown): Prisma.InputJsonValue | undefined {
     return value === undefined ? undefined : (value as Prisma.InputJsonValue);
+  }
+
+  private generateCredentials() {
+    return {
+      keyId: `pak_${randomBytes(12).toString('hex')}`,
+      secret: `pas_${randomBytes(32).toString('hex')}`,
+    };
+  }
+
+  private hashSecret(secret: string) {
+    return createHash('sha256').update(secret).digest('hex');
   }
 }
